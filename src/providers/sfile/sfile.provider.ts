@@ -76,6 +76,18 @@ export class SfileProvider implements Provider {
       } catch {}
     }
 
+    const directDownload = page.body.match(
+      /(?:data-direct-download|href)\s*=\s*(?:"|')?(https?:\/\/[^"'\s>]+\.(?:zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:\?[^"'\s>]*)?)/i
+    );
+
+    if (directDownload?.[1]) {
+      return {
+        ok: true,
+        providerId: this.meta.id,
+        destinationUrl: new URL(directDownload[1].replace(/&amp;/g, "&")).toString()
+      };
+    }
+
     const scriptTarget = page.body.match(
       /(?:window\.location|location)\.(?:href|replace)\s*(?:=|\()\s*["'](https?:\/\/[^"']+)["']/i
     );
