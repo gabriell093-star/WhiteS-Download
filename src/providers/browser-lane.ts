@@ -68,11 +68,6 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function isActionText(value: string): boolean {
-  return /^(download(?: file| now)?|direct download|get link|continue|go to link|start download|generate link|create link|free download|download free|download file|save file)$/i.test(
-    normalizeText(value)
-  );
-}
 
 export async function runBrowserFlow(
   url: URL,
