@@ -1,5 +1,6 @@
 import { ResolverError } from "../core/errors.js";
 import puppeteer from "@cloudflare/puppeteer";
+import { COSMETIC_AD_SELECTORS, shouldBlockRequest } from "./adblock.js";
 
 export interface BrowserPage {
   url(): string;
@@ -25,11 +26,29 @@ export function createBrowserAutomation(binding: BrowserBinding): BrowserAutomat
       );
       const page = await browser.newPage();
 
+      await page.setRequestInterception(true);
+      page.on("request", (request) => {
+        if (shouldBlockRequest(request.url())) {
+          void request.abort().catch(() => {});
+          return;
+        }
+
+        void request.continue().catch(() => {});
+      });
+
       try {
         await page.goto(url.toString(), {
           waitUntil: "domcontentloaded",
           timeout: options.timeoutMs ?? 15_000
         });
+
+        await page.evaluate((selectors) => {
+          for (const selector of selectors) {
+            for (const element of document.querySelectorAll(selector)) {
+              element.remove();
+            }
+          }
+        }, COSMETIC_AD_SELECTORS);
       } catch (error) {
         await browser.close();
         throw new ResolverError(
