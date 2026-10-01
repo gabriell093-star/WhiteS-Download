@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#32292F" id="themeColor">
+  <meta name="description" content="WhiteS Download — automatic link resolver. Paste a supported link and get the final destination URL.">
+  <title>WhiteS Download</title>
+  <style>
+    :root{
+      --turq:#99E1D9;
+      --turq-strong:#78D7CC;
+      --turq-soft:rgba(153,225,217,.14);
+      --turq-line:rgba(153,225,217,.24);
+      --turq-dim:rgba(153,225,217,.64);
+      --bg:#32292F;
+      --surface:rgba(40,32,40,.64);
+      --surface-2:rgba(26,20,26,.56);
+      --text:#F1EAEE;
+      --muted:#A99CA7;
+      --faint:rgba(241,234,238,.44);
+      --line:rgba(241,234,238,.12);
+      --rose:#E9968C;
+      --rose-soft:rgba(233,150,140,.15);
+      --r-sm:8px;
+      --r-md:12px;
+      --r-lg:16px;
+      --r-xl:20px;
+      --t-press:100ms;
+      --t-hover:180ms;
+      --t-state:320ms;
+      --ease:cubic-bezier(.22,.61,.36,1);
+      --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+      --font-mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+      --pad-x:clamp(20px,5vw,48px);
+      color-scheme:dark;
+    }
+
+    :root.light{
+      --bg:#F4F0F2;
+      --surface:rgba(255,255,255,.70);
+      --surface-2:rgba(247,243,245,.88);
+      --text:#261F24;
+      --muted:#6E626A;
+      --faint:rgba(38,31,36,.42);
+      --line:rgba(38,31,36,.12);
+      --turq-soft:rgba(20,170,155,.10);
+      --turq-line:rgba(20,170,155,.22);
+      --turq-dim:#0F766E;
+      --rose-soft:rgba(186,76,67,.10);
+      color-scheme:light;
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+    body{
+      font-family:var(--font-sans);
+      background:var(--bg);
+      color:var(--text);
+      font-size:16px;
+      line-height:1.6;
+      min-height:100vh;
+      min-height:100svh;
+      -webkit-font-smoothing:antialiased;
+      overflow-x:hidden;
+      transition:background-color var(--t-state) var(--ease),color var(--t-state) var(--ease);
+    }
+    [hidden]{display:none!important}
+    ::selection{background:var(--turq);color:#1B1520}
+    :focus-visible{outline:2px solid var(--turq);outline-offset:3px}
+    button,input{font:inherit}
+    button,a{ -webkit-tap-highlight-color:transparent }
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+    .atmo{
+      position:fixed;inset:0;z-index:-2;pointer-events:none;
+      background:radial-gradient(1000px 520px at 88% -12%,rgba(153,225,217,.08),transparent 60%);
+    }
+    :root.light .atmo{background:radial-gradient(900px 520px at 88% -12%,rgba(20,170,155,.07),transparent 60%)}
+
+    .wrap{max-width:1160px;margin-inline:auto;padding-inline:var(--pad-x)}
+
+    .top{
+      display:flex;justify-content:space-between;align-items:center;gap:20px;
+      padding-block:22px;
+    }
+    .brand{font-size:15px;font-weight:700;letter-spacing:-.01em}
+    .utilities{display:flex;align-items:center;gap:6px}
+    .utility{
+      min-width:40px;min-height:36px;padding:0 9px;
+      border:1px solid transparent;border-radius:var(--r-sm);
+      background:transparent;color:var(--muted);cursor:pointer;
+      font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+      transition:color var(--t-hover) var(--ease),background var(--t-hover) var(--ease),border-color var(--t-hover) var(--ease);
+    }
+    .utility:hover{color:var(--turq);background:var(--turq-soft);border-color:var(--turq-line)}
+    .utility[aria-pressed="true"]{color:var(--turq);background:var(--turq-soft);border-color:var(--turq-line)}
+
+    .layout{display:grid;gap:40px}
+    @media (min-width:1024px){
+      .layout{
+        grid-template-columns:minmax(0,1.05fr) minmax(360px,440px);
+        gap:clamp(48px,6vw,96px);
+        align-items:start;
+      }
+      .col-console{margin-top:clamp(24px,7vh,84px)}
+    }
+    @media (min-width:640px) and (max-width:1023.98px){.col-console{max-width:560px}}
+
+    .hero{margin-top:clamp(38px,7vh,84px)}
+    .eyebrow{
+      display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline;
+      font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--turq);
+    }
+    .eyebrow .id{color:var(--muted);letter-spacing:.12em}
+    .wordmark{margin-top:18px;font-size:clamp(46px,11vw,112px);line-height:.98;letter-spacing:-.04em;font-weight:800}
+    .wordmark .w2{display:block;margin-left:clamp(14px,4vw,44px);font-weight:300;color:var(--turq);letter-spacing:-.02em}
+    .lede{margin-top:22px;max-width:52ch;font-size:16px}
+    .lede .id{display:block;margin-top:6px;font-size:14px;color:var(--muted)}
+    .lede[data-lang]{display:block}
+
+    .eyebrow,.wordmark,.lede,.console{animation:rise .45s var(--ease) both}
+    .wordmark{animation-delay:.06s}.lede{animation-delay:.12s}.console{animation-delay:.18s}
+    @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+    .console{
+      position:relative;
+      background:var(--surface);
+      border:1px solid var(--line);
+      border-radius:var(--r-xl);
+      padding:clamp(20px,4vw,28px);
+      -webkit-backdrop-filter:blur(14px) saturate(1.12);
+      backdrop-filter:blur(14px) saturate(1.12);
+    }
+    .console::before{
+      content:"";position:absolute;top:-1px;left:24px;width:64px;height:2px;
+      background:var(--turq);border-radius:0 0 2px 2px;
+    }
+
+    .field-label{
+      display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+      font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    }
+    .field-label .idx{color:var(--turq)}
+    .field-label .lab-id{color:var(--muted);letter-spacing:.08em}
+    .field{
+      margin-top:12px;border:1px solid var(--line);background:var(--surface-2);border-radius:var(--r-md);
+      transition:border-color var(--t-hover) var(--ease),box-shadow var(--t-hover) var(--ease),background-color var(--t-state) var(--ease);
+    }
+    .field:focus-within{border-color:var(--turq);box-shadow:0 0 0 3px var(--turq-soft)}
+    .field.is-error{border-color:var(--rose);box-shadow:0 0 0 3px var(--rose-soft)}
+    #url{
+      display:block;width:100%;background:transparent;border:0;outline:0;border-radius:var(--r-md);
+      color:var(--text);caret-color:var(--turq);font-family:var(--font-mono);font-size:16px;padding:17px 16px;
+    }
+    #url::placeholder{color:var(--faint)}
+
+    .supported-row{margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .hint{font-size:12px;color:var(--muted);line-height:1.5}
+    .hint strong{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--turq-dim)}
+    .providers-toggle{
+      flex:none;border:0;background:none;color:var(--muted);cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;
+      font-size:12px;padding:3px 0;
+    }
+    .providers-toggle:hover{color:var(--turq)}
+    .providers-list{margin-top:8px;padding-top:10px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);line-height:1.65}
+
+    .field-error{margin-top:10px;font-size:13px;color:var(--rose)}
+    .btn-primary{
+      position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;min-height:56px;margin-top:20px;padding:0 22px;border:0;border-radius:var(--r-md);
+      background:var(--turq);color:#1B1520;font-size:16px;font-weight:700;cursor:pointer;
+      transition:filter var(--t-hover) var(--ease),transform var(--t-press) var(--ease),opacity var(--t-hover) var(--ease);
+    }
+    .btn-primary:hover:not(:disabled){filter:brightness(1.05)}
+    .btn-primary:active:not(:disabled){transform:translateY(1px) scale(.995);filter:brightness(.96)}
+    .btn-primary:disabled{opacity:.48;cursor:not-allowed}
+    .btn-primary .btn-arrow{font-weight:400;transition:transform var(--t-hover) var(--ease)}
+    @media (hover:hover){.btn-primary:hover:not(:disabled) .btn-arrow{transform:translateX(3px)}}
+    .spinner{display:none;width:16px;height:16px;flex:none;border-radius:50%;border:2px solid rgba(27,21,32,.24);border-top-color:#1B1520;animation:spin .7s linear infinite}
+    .btn-primary.is-loading .spinner{display:inline-block}.btn-primary.is-loading .btn-arrow{display:none}
+    @keyframes spin{to{transform:rotate(1turn)}}
+
+    .btn-ghost{
+      display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 20px;
+      border-radius:var(--r-md);border:1px solid var(--turq-line);background:transparent;color:var(--turq);
+      font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;
+      transition:background var(--t-hover) var(--ease),transform var(--t-press) var(--ease);
+    }
+    .btn-ghost:hover{background:var(--turq-soft)}.btn-ghost:active{transform:translateY(1px)}
+    .link-quiet{
+      background:none;border:0;cursor:pointer;padding:6px 2px;color:var(--muted);font-size:13.5px;
+      text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--line);
+      transition:color var(--t-hover) var(--ease);
+    }
+    .link-quiet:hover{color:var(--turq)}
+
+    .status{margin-top:16px}
+    .panel{
+      border:1px solid var(--line);background:var(--surface);border-radius:var(--r-lg);padding:18px;
+      -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+    }
+    .panel.enter{animation:rise var(--t-state) var(--ease) both}
+    .panel-idle{border:0;background:transparent;padding:6px 2px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+    .dot{width:6px;height:6px;border-radius:50%;background:var(--turq);opacity:.8;flex:none}
+
+    .proc-head{display:flex;align-items:center;gap:12px}
+    .spinner-lg{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--turq-soft);border-top-color:var(--turq);animation:spin .8s linear infinite}
+    .proc-title{font-weight:600;font-size:15px}
+    .proc-sub{font-size:12.5px;color:var(--muted)}
+    .bar{height:2px;border-radius:2px;background:rgba(241,234,238,.09);margin:16px 0 8px;overflow:hidden}
+    :root.light .bar{background:rgba(38,31,36,.09)}
+    .bar-fill{display:block;height:100%;width:0;background:var(--turq);border-radius:2px;transition:width .5s var(--ease)}
+    .steps{list-style:none;display:flex;flex-direction:column}
+    .step{display:flex;gap:10px;align-items:flex-start;padding:8px 0;opacity:.5;transition:opacity var(--t-state) var(--ease)}
+    .step.active,.step.done,.step.fail{opacity:1}
+    .s-ic{flex:none;width:18px;height:18px;margin-top:2px;border-radius:50%;border:1.5px solid var(--faint);display:grid;place-items:center;position:relative}
+    .step .s-en{display:block;font-size:14px;color:var(--muted)}
+    .step.active .s-ic{border-color:var(--turq)}
+    .step.active .s-ic::after{content:"";width:6px;height:6px;border-radius:50%;background:var(--turq);animation:pulse 1.3s ease-in-out infinite}
+    .step.active .s-en,.step.done .s-en{color:var(--text)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    .step.done .s-ic{background:var(--turq);border-color:var(--turq)}
+    .step.done .s-ic::after{content:"✓";font-size:10px;font-weight:800;color:#1B1520}
+    .step.fail .s-ic{border-color:var(--rose);background:var(--rose-soft)}
+    .step.fail .s-ic::after{content:"×";font-size:11px;font-weight:800;color:var(--rose)}
+    .step.fail .s-en{color:var(--rose)}
+
+    .ok-head{display:flex;gap:12px;align-items:center}
+    .ok-badge{flex:none;width:26px;height:26px;border-radius:50%;background:var(--turq);color:#1B1520;display:grid;place-items:center}
+    .ok-title{font-weight:700;font-size:16px}
+    .ok-sub{font-size:12.5px;color:var(--muted)}
+    .urlbox{margin-top:16px;background:var(--surface-2);border:1px solid var(--turq-line);border-radius:var(--r-md);padding:13px 14px}
+    .urlbox code{font-family:var(--font-mono);font-size:13px;line-height:1.6;color:var(--turq-strong);word-break:break-all;overflow-wrap:anywhere;user-select:all;-webkit-user-select:all;cursor:text}
+    :root.light .urlbox code{color:#0F766E}
+    .ok-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .ok-actions .btn-primary{width:auto;flex:1 1 140px;margin-top:0;min-height:52px}
+    .ok-actions .btn-ghost{flex:1 1 140px}
+    .again{margin-top:6px}
+
+    .err-head{display:flex;gap:12px;align-items:flex-start}
+    .err-badge{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--rose);color:var(--rose);display:grid;place-items:center}
+    .err-title{font-weight:700;font-size:16px}
+    .err-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .err-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+    .err-actions .btn-primary{width:auto;margin-top:0;min-height:46px;padding:0 20px;font-size:14.5px}
+
+    .foot{
+      margin-top:clamp(48px,8vh,88px);
+      border-top:1px solid var(--line);
+      padding:22px 0 calc(28px + env(safe-area-inset-bottom));
+      display:flex;justify-content:space-between;align-items:baseline;gap:8px 24px;flex-wrap:wrap;
+    }
+    .foot-left{font-size:12.5px;color:var(--muted);max-width:52ch}
+    .credit{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.08em;color:var(--muted);opacity:.7}
+    @media (max-width:639.98px){
+      .top{padding-block:18px}.utilities{gap:2px}.utility{min-width:36px;min-height:34px;padding-inline:7px}
+      .hero{margin-top:34px}.wordmark{font-size:clamp(44px,14vw,68px)}
+      .supported-row{align-items:flex-start}.providers-toggle{white-space:nowrap}
+      .ok-actions,.err-actions{flex-direction:column;align-items:stretch}
+      .ok-actions .btn-primary,.ok-actions .btn-ghost,.err-actions .btn-primary{width:100%;flex-basis:auto}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      *,*::before,*::after{
+        animation-duration:.01ms!important;
+        animation-iteration-count:1!important;
+        transition-duration:.01ms!important;
+        scroll-behavior:auto!important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="atmo" aria-hidden="true"></div>
+  <p id="live" class="sr-only" role="status" aria-live="polite"></p>
+
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">WhiteS</div>
+
+      <div class="utilities" aria-label="Interface settings">
+        <button class="utility" id="langEn" type="button" aria-pressed="true">EN</button>
+        <button class="utility" id="langId" type="button" aria-pressed="false">ID</button>
+        <button class="utility" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch to light mode">◐</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="hero" aria-labelledby="pageTitle">
+        <p class="eyebrow">
+          <span
+            data-en="Automatic link resolver"
+            data-id="Penyelesai tautan otomatis"
+          >Automatic link resolver</span>
+
+          <span class="id" aria-hidden="true">·</span>
+
+          <span
+            class="id"
+            data-en="Paste once. Resolve automatically."
+            data-id="Tempel sekali. Proses otomatis."
+          >Paste once. Resolve automatically.</span>
+        </p>
+
+        <h1 class="wordmark" id="pageTitle">
+          <span class="w1">WhiteS</span>
+          <span class="w2">Download</span>
+        </h1>
+
+        <p
+          class="lede"
+          data-en="Paste a supported link. WhiteS processes it automatically and returns the final destination URL."
+          data-id="Tempel tautan yang didukung. WhiteS memprosesnya otomatis dan mengembalikan URL tujuan akhir."
+        >
+          Paste a supported link. WhiteS processes it automatically and returns the final destination URL.
+        </p>
+      </section>
+
+      <div class="col-console">
+        <section class="console" aria-label="Link resolver">
+          <form id="form" novalidate>
+            <label class="field-label" for="url">
+              <span class="idx">01</span>
+              <span
+                data-en="Link input"
+                data-id="Masukkan tautan"
+              >Link input</span>
+            </label>
+
+            <div class="field" id="field">
+              <input
+                id="url"
+                name="url"
+                type="url"
+                inputmode="url"
+                autocomplete="off"
+                spellcheck="false"
+                autocapitalize="off"
+                autocorrect="off"
+                enterkeyhint="go"
+                placeholder="Paste your link here..."
+                aria-describedby="fieldHint fieldError"
+              >
+            </div>
+
+            <div class="supported-row">
+              <p class="hint" id="fieldHint">
+                <strong
+                  data-en="Supported"
+                  data-id="Didukung"
+                >Supported</strong>
+                ·
+                <span
+                  data-en="10 providers"
+                  data-id="10 provider"
+                >10 providers</span>
+              </p>
+
+              <button
+                class="providers-toggle"
+                id="providersToggle"
+                type="button"
+                aria-expanded="false"
+              >View list</button>
+            </div>
+
+            <div class="providers-list" id="providersList" hidden>
+              Sfile.mobi
+            </div>
+
+            <p
+              class="field-error"
+              id="fieldError"
+              hidden
+              data-en="Enter a valid URL."
+              data-id="Masukkan URL yang valid."
+            >Enter a valid URL.</p>
+
+            <button class="btn-primary" id="resolveBtn" type="submit">
+              <span class="spinner" aria-hidden="true"></span>
+
+              <span
+                id="btnLabel"
+                data-en="Bypass"
+                data-id="Bypass"
+              >Bypass</span>
+
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+          </form>
+        </section>
+
+        <section class="status" aria-label="Resolution status">
+          <div class="panel panel-idle" id="panelIdle">
+            <span class="dot" aria-hidden="true"></span>
+            <p
+              data-en="Ready — paste a link to begin"
+              data-id="Siap — tempel tautan untuk mulai"
+            >Ready — paste a link to begin</p>
+          </div>
+
+          <div class="panel" id="panelProcessing" hidden>
+            <div class="proc-head">
+              <span class="spinner-lg" aria-hidden="true"></span>
+
+              <div>
+                <p
+                  class="proc-title"
+                  data-en="Resolving link…"
+                  data-id="Memproses tautan…"
+                >Resolving link…</p>
+
+                <p
+                  class="proc-sub"
+                  data-en="Automatic resolution in progress"
+                  data-id="Proses otomatis sedang berjalan"
+                >Automatic resolution in progress</p>
+              </div>
+            </div>
+
+            <div class="bar" aria-hidden="true">
+              <span class="bar-fill" id="barFill"></span>
+            </div>
+
+            <ol class="steps" id="steps">
+              <li class="step">
+                <span class="s-ic" aria-hidden="true"></span>
+                <span>
+                  <span
+                    class="s-en"
+                    data-en="Link validated"
+                    data-id="Tautan tervalidasi"
+                  >Link validated</span>
+                </span>
+              </li>
+
+              <li class="step">
+                <span class="s-ic" aria-hidden="true"></span>
+                <span>
+                  <span
+                    class="s-en"
+                    data-en="Provider detected"
+                    data-id="Provider terdeteksi"
+                  >Provider detected</span>
+                </span>
+              </li>
+
+              <li class="step">
+                <span class="s-ic" aria-hidden="true"></span>
+                <span>
+                  <span
+                    class="s-en"
+                    data-en="Processing link"
+                    data-id="Memproses tautan"
+                  >Processing link</span>
+                </span>
+              </li>
+
+              <li class="step">
+                <span class="s-ic" aria-hidden="true"></span>
+                <span>
+                  <span
+                    class="s-en"
+                    data-en="Finding destination"
+                    data-id="Mencari tujuan"
+                  >Finding destination</span>
+                </span>
+              </li>
+            </ol>
+          </div>
+
+          <div class="panel" id="panelSuccess" hidden>
+            <div class="ok-head">
+              <span class="ok-badge" aria-hidden="true">
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M4 12.5l5.2 5L20 6.5"/>
+                </svg>
+              </span>
+
+              <div>
+                <p
+                  class="ok-title"
+                  data-en="Destination found"
+                  data-id="Tujuan ditemukan"
+                >Destination found</p>
+
+                <p
+                  class="ok-sub"
+                  data-en="The final URL is ready"
+                  data-id="URL tujuan akhir siap"
+                >The final URL is ready</p>
+              </div>
+            </div>
+
+            <div class="urlbox">
+              <code id="destUrl"></code>
+            </div>
+
+            <div class="ok-actions">
+              <button
+                class="btn-primary"
+                id="copyBtn"
+                type="button"
+              >
+                <span
+                  id="copyLabel"
+                  data-en="Copy Link"
+                  data-id="Salin Link"
+                >Copy Link</span>
+              </button>
+
+              <a
+                class="btn-ghost"
+                id="openLink"
+                href="#"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span
+                  data-en="Open Link"
+                  data-id="Buka Link"
+                >Open Link</span>
+
+                <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+
+            <button
+              class="link-quiet again"
+              id="againBtn"
+              type="button"
+              data-en="Resolve another link"
+              data-id="Proses tautan lain"
+            >Resolve another link</button>
+          </div>
+
+          <div class="panel" id="panelError" hidden>
+            <div class="err-head">
+              <span class="err-badge" aria-hidden="true">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="3"
+                  stroke-linecap="round"
+                >
+                  <path d="M12 4v10"/>
+                  <path d="M12 19.4v.4"/>
+                </svg>
+              </span>
+
+              <div>
+                <p class="err-title" id="errTitle"></p>
+                <p class="err-sub" id="errSub"></p>
+              </div>
+            </div>
+
+            <div class="err-actions">
+              <button
+                class="btn-primary"
+                id="retryBtn"
+                type="button"
+                data-en="Try again"
+                data-id="Coba lagi"
+              >Try again</button>
+
+              <button
+                class="link-quiet"
+                id="newLinkBtn"
+                type="button"
+                data-en="Try another link"
+                data-id="Coba tautan lain"
+              >Try another link</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <p
+        class="foot-left"
+        data-en="Paste once. Resolve automatically."
+        data-id="Tempel sekali. Proses otomatis."
+      >Paste once. Resolve automatically.</p>
+
+      <p class="credit">Creator: Ellias</p>
+    </footer>
+  </div>
+    <script>
+    (()=>{
+      'use strict';
+
+      const $ = (s)=>document.querySelector(s);
+      const $$ = (s)=>[...document.querySelectorAll(s)];
+
+      const form=$('#form');
+      const urlInput=$('#url');
+      const field=$('#field');
+      const fieldError=$('#fieldError');
+      const btn=$('#resolveBtn');
+      const btnLabel=$('#btnLabel');
+      const providersToggle=$('#providersToggle');
+      const providersList=$('#providersList');
+      const langEn=$('#langEn');
+      const langId=$('#langId');
+      const themeToggle=$('#themeToggle');
+      const themeColor=$('#themeColor');
+      const panels={
+        idle:$('#panelIdle'),
+        processing:$('#panelProcessing'),
+        success:$('#panelSuccess'),
+        error:$('#panelError')
+      };
+      const barFill=$('#barFill');
+      const steps=$$('#steps .step');
+      const destUrl=$('#destUrl');
+      const copyBtn=$('#copyBtn');
+      const copyLabel=$('#copyLabel');
+      const openLink=$('#openLink');
+      const retryBtn=$('#retryBtn');
+      const againBtn=$('#againBtn');
+      const newLinkBtn=$('#newLinkBtn');
+      const errTitle=$('#errTitle');
+      const errSub=$('#errSub');
+      const live=$('#live');
+
+      const ERRORS={
+        INVALID_URL:{
+          en:'Invalid link',
+          id:'Link tidak valid'
+        },
+        UNSUPPORTED_PROVIDER:{
+          en:'Unsupported provider',
+          id:'Provider tidak didukung'
+        },
+        DESTINATION_NOT_FOUND:{
+          en:'Destination not found',
+          id:'Tujuan tidak ditemukan'
+        },
+        RESOLUTION_TIMEOUT:{
+          en:'Resolution timed out',
+          id:'Waktu proses habis'
+        },
+        TOO_MANY_REDIRECTS:{
+          en:'Link could not be completed',
+          id:'Tautan tidak dapat diselesaikan'
+        },
+        PROVIDER_CHANGED:{
+          en:'Provider could not be completed',
+          id:'Provider tidak dapat diproses'
+        },
+        RATE_LIMITED:{
+          en:'Too many requests',
+          id:'Terlalu banyak permintaan'
+        },
+        CONCURRENCY_LIMITED:{
+          en:'The resolver is busy',
+          id:'Resolver sedang sibuk'
+        },
+        SECURITY_BLOCKED:{
+          en:'Link blocked for security',
+          id:'Tautan diblokir karena keamanan'
+        },
+        RESOLUTION_FAILED:{
+          en:'This link cannot be processed',
+          id:'Tautan ini tidak dapat diproses'
+        }
+      };
+
+      let language='en';
+      let theme=localStorage.getItem('whites-theme')==='light'
+        ? 'light'
+        : 'dark';
+      let state='idle';
+      let lastRawUrl='';
+      let lastErrorCode='';
+      let timers=[];
+      let copyTimer=null;
+      let abortController=null;
+
+      function setLanguage(next){
+        language=next;
+        document.documentElement.lang=next;
+
+        $$('[data-en]').forEach((el)=>{
+          const value=el.getAttribute(`data-${next}`);
+          if(value!==null) el.textContent=value;
+        });
+
+        urlInput.placeholder=
+          next==='en'
+            ? 'Paste your link here...'
+            : 'Tempel tautan di sini...';
+
+        langEn.setAttribute(
+          'aria-pressed',
+          String(next==='en')
+        );
+
+        langId.setAttribute(
+          'aria-pressed',
+          String(next==='id')
+        );
+
+        providersToggle.textContent=
+          providersToggle.getAttribute('aria-expanded')==='true'
+            ? (next==='en' ? 'Hide list' : 'Sembunyikan')
+            : (next==='en' ? 'View list' : 'Lihat daftar');
+
+        if(state==='success'){
+          copyLabel.textContent=
+            next==='en'
+              ? 'Copy Link'
+              : 'Salin Link';
+        }
+
+        if(state==='error' && lastErrorCode){
+          renderError(lastErrorCode,false);
+        }
+      }
+
+      function applyTheme(next){
+        theme=next;
+
+        document.documentElement.classList.toggle(
+          'light',
+          next==='light'
+        );
+
+        themeToggle.setAttribute(
+          'aria-pressed',
+          String(next==='light')
+        );
+
+        themeToggle.setAttribute(
+          'aria-label',
+          next==='light'
+            ? 'Switch to dark mode'
+            : 'Switch to light mode'
+        );
+
+        themeColor.setAttribute(
+          'content',
+          next==='light'
+            ? '#F4F0F2'
+            : '#32292F'
+        );
+
+        localStorage.setItem(
+          'whites-theme',
+          next
+        );
+      }
+
+      function announce(message){
+        live.textContent=message;
+      }
+
+      function later(fn,ms){
+        const id=setTimeout(fn,ms);
+        timers.push(id);
+        return id;
+      }
+
+      function clearTimers(){
+        timers.forEach(clearTimeout);
+        timers=[];
+      }
+
+      function showPanel(name){
+        Object.entries(panels).forEach(
+          ([key,el])=>{
+            const active=key===name;
+            el.hidden=!active;
+
+            if(active){
+              el.classList.remove('enter');
+              void el.offsetWidth;
+              el.classList.add('enter');
+            }
+          }
+        );
+      }
+
+      function setButtonLoading(loading){
+        btn.classList.toggle('is-loading',loading);
+        btn.disabled=loading;
+        btnLabel.textContent='Bypass';
+      }
+
+      function resetSteps(){
+        steps.forEach(
+          (step)=>{
+            step.classList.remove(
+              'active',
+              'done',
+              'fail'
+            );
+          }
+        );
+
+        barFill.style.width='2%';
+      }
+
+      function activate(i){
+        steps[i]?.classList.remove(
+          'done',
+          'fail'
+        );
+
+        steps[i]?.classList.add(
+          'active'
+        );
+      }
+
+      function complete(i){
+        steps[i]?.classList.remove(
+          'active',
+          'fail'
+        );
+
+        steps[i]?.classList.add(
+          'done'
+        );
+      }
+
+      function failStep(i){
+        steps[i]?.classList.remove(
+          'active',
+          'done'
+        );
+
+        steps[i]?.classList.add(
+          'fail'
+        );
+      }
+
+      function clearFieldError(){
+        field.classList.remove('is-error');
+        fieldError.hidden=true;
+      }
+
+      function renderError(code,announceIt=true){
+        const item=
+          ERRORS[code] ||
+          ERRORS.RESOLUTION_FAILED;
+
+        lastErrorCode=code;
+
+        errTitle.textContent=
+          item[language];
+
+        errSub.textContent=
+          language==='en'
+            ? 'Try again or use another supported link.'
+            : 'Coba lagi atau gunakan tautan lain yang didukung.';
+
+        showPanel('error');
+        setButtonLoading(false);
+        state='error';
+
+        if(announceIt){
+          announce(item[language]);
+        }
+      }
+
+      function validHttpUrl(raw){
+        try{
+          const value=new URL(raw);
+
+          if(
+            value.protocol!=='http:' &&
+            value.protocol!=='https:'
+          ){
+            return null;
+          }
+
+          if(value.username || value.password){
+            return null;
+          }
+
+          return value;
+        }catch{
+          return null;
+        }
+      }
+
+      function beginProgress(){
+        resetSteps();
+
+        later(()=>{
+          activate(0);
+          barFill.style.width='22%';
+          announce(
+            language==='en'
+              ? 'Link validated'
+              : 'Tautan tervalidasi'
+          );
+        },180);
+
+        later(()=>{
+          complete(0);
+          activate(1);
+          barFill.style.width='40%';
+          announce(
+            language==='en'
+              ? 'Provider detected'
+              : 'Provider terdeteksi'
+          );
+        },620);
+
+        later(()=>{
+          complete(1);
+          activate(2);
+          barFill.style.width='62%';
+          announce(
+            language==='en'
+              ? 'Processing link'
+              : 'Memproses tautan'
+          );
+        },1300);
+
+        later(()=>{
+          complete(2);
+          activate(3);
+          barFill.style.width='84%';
+          announce(
+            language==='en'
+              ? 'Finding destination'
+              : 'Mencari tujuan'
+          );
+        },2100);
+      }
+
+      async function resolveUrl(raw){
+        clearTimers();
+        clearFieldError();
+        state='processing';
+        lastRawUrl=raw;
+        lastErrorCode='';
+        setButtonLoading(true);
+        showPanel('processing');
+        announce(
+          language==='en'
+            ? 'Resolving link'
+            : 'Memproses tautan'
+        );
+        beginProgress();
+
+        abortController=new AbortController();
+        const timeout=setTimeout(
+          ()=>abortController?.abort(),
+          16500
+        );
+
+        try{
+          const response=await fetch(
+            '/api/resolve',
+            {
+              method:'POST',
+              headers:{
+                'content-type':'application/json',
+                'accept':'application/json'
+              },
+              body:JSON.stringify({
+                url:raw
+              }),
+              signal:abortController.signal
+            }
+          );
+
+          let data=null;
+
+          try{
+            data=await response.json();
+          }catch{}
+
+          if(
+            !response.ok ||
+            !data ||
+            data.ok!==true
+          ){
+            const code=
+              data?.error?.code ||
+              (
+                response.status===429
+                  ? 'RATE_LIMITED'
+                  : 'RESOLUTION_FAILED'
+              );
+
+            if(code==='INVALID_URL'){
+              field.classList.add('is-error');
+              fieldError.hidden=false;
+            }
+
+            failStep(
+              code==='INVALID_URL' ||
+              code==='UNSUPPORTED_PROVIDER'
+                ? 1
+                : 3
+            );
+
+            barFill.style.width='90%';
+            renderError(code);
+            return;
+          }
+
+          const destination=
+            typeof data.destinationUrl==='string'
+              ? validHttpUrl(data.destinationUrl)
+              : null;
+
+          if(!destination){
+            failStep(3);
+            barFill.style.width='90%';
+            renderError('RESOLUTION_FAILED');
+            return;
+          }
+
+          complete(3);
+          barFill.style.width='100%';
+
+          await new Promise(
+            (resolve)=>setTimeout(resolve,140)
+          );
+
+          destUrl.textContent=
+            destination.toString();
+
+          openLink.href=
+            destination.toString();
+
+          showPanel('success');
+          setButtonLoading(false);
+          state='success';
+
+          announce(
+            language==='en'
+              ? 'Destination found'
+              : 'Tujuan ditemukan'
+          );
+        }catch(error){
+          if(error?.name==='AbortError'){
+            failStep(3);
+            barFill.style.width='90%';
+            renderError('RESOLUTION_TIMEOUT');
+            return;
+          }
+
+          failStep(3);
+          barFill.style.width='90%';
+          renderError('RESOLUTION_FAILED');
+        }finally{
+          clearTimeout(timeout);
+          abortController=null;
+        }
+      }
+
+      function toIdle(focus=false){
+        clearTimers();
+
+        if(abortController){
+          abortController.abort();
+          abortController=null;
+        }
+
+        state='idle';
+        lastErrorCode='';
+
+        setButtonLoading(false);
+        resetSteps();
+        clearFieldError();
+        showPanel('idle');
+
+        if(focus){
+          urlInput.focus();
+        }
+      }
+
+      function validateAndSubmit(){
+        const raw=
+          urlInput.value.trim();
+
+        const url=
+          validHttpUrl(raw);
+
+        if(!url){
+          field.classList.add('is-error');
+          fieldError.hidden=false;
+          renderError('INVALID_URL');
+          return;
+        }
+
+        resolveUrl(url.toString());
+      }
+
+      form.addEventListener(
+        'submit',
+        (event)=>{
+          event.preventDefault();
+
+          if(state!=='processing'){
+            validateAndSubmit();
+          }
+        }
+      );
+
+      retryBtn.addEventListener(
+        'click',
+        ()=>{
+          if(
+            state==='processing' ||
+            !lastRawUrl
+          ){
+            return;
+          }
+
+          const retryUrl=
+            validHttpUrl(lastRawUrl);
+
+          if(!retryUrl){
+            toIdle(true);
+            return;
+          }
+
+          resolveUrl(retryUrl.toString());
+        }
+      );
+
+      againBtn.addEventListener(
+        'click',
+        ()=>{
+          urlInput.value='';
+          toIdle(true);
+        }
+      );
+
+      newLinkBtn.addEventListener(
+        'click',
+        ()=>{
+          urlInput.value='';
+          toIdle(true);
+        }
+      );
+
+      copyBtn.addEventListener(
+        'click',
+        async()=>{
+          const value=destUrl.textContent;
+
+          if(!value){
+            return;
+          }
+
+          let copied=false;
+
+          try{
+            await navigator.clipboard.writeText(value);
+            copied=true;
+          }catch{
+            const ta=
+              document.createElement('textarea');
+
+            ta.value=value;
+            ta.setAttribute('readonly','');
+            ta.style.cssText=
+              'position:fixed;opacity:0';
+
+            document.body.appendChild(ta);
+            ta.select();
+
+            try{
+              copied=document.execCommand('copy');
+            }catch{}
+
+            ta.remove();
+          }
+
+          if(copied){
+            copyLabel.textContent=
+              language==='en'
+                ? 'Copied ✓'
+                : 'Tersalin ✓';
+
+            announce(
+              language==='en'
+                ? 'Link copied'
+                : 'Tautan tersalin'
+            );
+
+            clearTimeout(copyTimer);
+
+            copyTimer=setTimeout(
+              ()=>{
+                copyLabel.textContent=
+                  language==='en'
+                    ? 'Copy Link'
+                    : 'Salin Link';
+              },
+              1700
+            );
+          }
+        }
+      );
+
+      openLink.addEventListener(
+        'click',
+        (event)=>{
+          const value=destUrl.textContent.trim();
+
+          if(!validHttpUrl(value)){
+            event.preventDefault();
+          }
+        }
+      );
+
+      providersToggle.addEventListener(
+        'click',
+        ()=>{
+          const open=
+            providersToggle.getAttribute(
+              'aria-expanded'
+            )==='true';
+
+          providersToggle.setAttribute(
+            'aria-expanded',
+            String(!open)
+          );
+
+          providersList.hidden=open;
+
+          providersToggle.textContent=
+            open
+              ? (
+                language==='en'
+                  ? 'View list'
+                  : 'Lihat daftar'
+              )
+              : (
+                language==='en'
+                  ? 'Hide list'
+                  : 'Sembunyikan'
+              );
+        }
+      );
+
+      langEn.addEventListener(
+        'click',
+        ()=>{
+          setLanguage('en');
+        }
+      );
+
+      langId.addEventListener(
+        'click',
+        ()=>{
+          setLanguage('id');
+        }
+      );
+
+      themeToggle.addEventListener(
+        'click',
+        ()=>{
+          applyTheme(
+            theme==='light'
+              ? 'dark'
+              : 'light'
+          );
+        }
+      );
+
+      applyTheme(theme);
+      setLanguage('en');
+      showPanel('idle');
+      setButtonLoading(false);
+    })();
+    </script>
+
+</body>
+</html>
