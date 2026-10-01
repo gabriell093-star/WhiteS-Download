@@ -1,6 +1,7 @@
 import { ResolverError } from "../../core/errors.js";
 import type { Provider, ProviderContext } from "../../core/provider.js";
 import type { ResolutionSuccess } from "../../core/types.js";
+import { runBrowserFlow } from "../browser-lane.js";
 
 const HOSTNAMES = ["sfile.co", "sfile.mobi"] as const;
 
@@ -14,8 +15,8 @@ export class SfileProvider implements Provider {
     id: "sfile",
     label: "Sfile",
     hostnames: HOSTNAMES,
-    enabled: false,
-    requiresBrowser: false
+    enabled: true,
+    requiresBrowser: true
   } as const;
 
   detect(url: URL): boolean {
@@ -87,9 +88,23 @@ export class SfileProvider implements Provider {
       };
     }
 
-    throw new ResolverError(
-      "PROVIDER_CHANGED",
-      "No direct download link was found on the Sfile page."
-    );
+    return {
+      ok: true,
+      providerId: this.meta.id,
+      destinationUrl: await runBrowserFlow(
+        url,
+        ctx,
+        HOSTNAMES,
+        [
+          "#downloadBtn",
+          "#downloadbtn",
+          "#download-now",
+          "#dl",
+          "button#dl",
+          "a#download"
+        ],
+        12
+      )
+    };
   }
 }
