@@ -131,6 +131,11 @@ export async function runBrowserFlow(
           return !/^please wait\b/i.test(text);
         };
 
+        const actionText = (value: string): boolean =>
+          /^(download(?: file| now)?|direct download|get link|continue|go to link|start download|generate link|create link|free download|download free|download file|save file)$/i.test(
+            value.replace(/\\s+/g, " ").trim()
+          );
+
         const pageText = document.body?.innerText ?? "";
         const challengeElement = Array.from(
           document.querySelectorAll(
@@ -235,7 +240,7 @@ export async function runBrowserFlow(
           .filter((value): value is { selector: string; text: string; href: string } => Boolean(value));
 
         const candidate = candidates.find(
-          (entry) => isActionText(entry.text) && entry.href
+          (entry) => actionText(entry.text) && entry.href
         );
 
         return {
