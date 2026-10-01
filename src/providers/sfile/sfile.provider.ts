@@ -1,24 +1,25 @@
 import { ResolverError } from "../../core/errors.js";
-import type { Provider } from "../../core/provider.js";
-import type { ProviderContext } from "../../core/provider.js";
+import type { Provider, ProviderContext } from "../../core/provider.js";
 import type { ResolutionSuccess } from "../../core/types.js";
-import { extractAnchors } from "../../html/extract.js";
 
-const HOSTNAMES = ["sfile.mobi"] as const;
-const FILE_EXT_RE = /\.(apk|zip|rar|7z|exe|pdf|mp3|mp4|mkv|iso|tar|gz|dmg|ipa)$/i;
+const HOSTNAMES = ["sfile.co", "sfile.mobi"] as const;
+
+function sameHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return HOSTNAMES.some((candidate) => host === candidate || host.endsWith("." + candidate));
+}
 
 export class SfileProvider implements Provider {
   readonly meta = {
     id: "sfile",
-    label: "Sfile.mobi",
+    label: "Sfile",
     hostnames: HOSTNAMES,
     enabled: true,
     requiresBrowser: false
   } as const;
 
   detect(url: URL): boolean {
-    const host = url.hostname.toLowerCase();
-    return host === "sfile.mobi" || host === "www.sfile.mobi";
+    return sameHost(url.hostname);
   }
 
   async resolve(url: URL, ctx: ProviderContext): Promise<ResolutionSuccess> {
@@ -27,45 +28,68 @@ export class SfileProvider implements Provider {
     if (page.status === 404 || page.status === 410) {
       throw new ResolverError(
         "DESTINATION_NOT_FOUND",
-        "The Sfile.mobi page does not exist or has expired."
+        "The Sfile page does not exist or has expired."
       );
     }
 
     if (page.status >= 400) {
       throw new ResolverError(
         "RESOLUTION_FAILED",
-        `Sfile.mobi returned HTTP ${page.status}.`,
+        "Sfile returned HTTP " + page.status + ".",
         true
       );
     }
 
-    const candidates: URL[] = [];
+    const current = new URL(page.url);
+    if (!sameHost(current.hostname)) {
+      return {
+        ok: true,
+        providerId: this.meta.id,
+        destinationUrl: current.toString()
+      };
+    }
 
-    for (const anchor of extractAnchors(page.body)) {
+    const anchorRe = /<a\b[^>]*?href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi;
+
+    for (const match of page.body.matchAll(anchorRe)) {
+      const href = match[1] ?? match[2] ?? match[3] ?? "";
+      const text = (match[4] ?? "")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!href) continue;
+
       try {
-        const candidate = new URL(anchor.href, page.url);
+        const candidate = new URL(href, page.url);
         if (candidate.protocol !== "http:" && candidate.protocol !== "https:") continue;
-        if (candidate.toString() === page.url) continue;
-        if (FILE_EXT_RE.test(candidate.pathname)) {
-          candidates.push(candidate);
+
+        if (!sameHost(candidate.hostname) &&
+            (/download|direct|save/i.test(text) || /\/downloadfile\//i.test(candidate.pathname))) {
+          return {
+            ok: true,
+            providerId: this.meta.id,
+            destinationUrl: candidate.toString()
+          };
         }
-      } catch {
-        // Ignore malformed anchors.
-      }
+      } catch {}
     }
 
-    const destination = candidates[0];
-    if (!destination) {
-      throw new ResolverError(
-        "PROVIDER_CHANGED",
-        "No direct download link was found. Sfile.mobi may have changed its page structure."
-      );
+    const scriptTarget = page.body.match(
+      /(?:window\.location|location)\.(?:href|replace)\s*(?:=|\()\s*["'](https?:\/\/[^"']+)["']/i
+    );
+
+    if (scriptTarget?.[1]) {
+      return {
+        ok: true,
+        providerId: this.meta.id,
+        destinationUrl: new URL(scriptTarget[1]).toString()
+      };
     }
 
-    return {
-      ok: true,
-      providerId: this.meta.id,
-      destinationUrl: destination.toString()
-    };
+    throw new ResolverError(
+      "PROVIDER_CHANGED",
+      "No direct download link was found on the Sfile page."
+    );
   }
 }
