@@ -49,10 +49,32 @@ export class ResolverEngine {
       const destination = parseAndValidateUrl(success.destinationUrl);
       await assertPublicEndpoint(destination, deadline);
 
+      const probe = await this.http.probe(destination, deadline, {
+        headers: {
+          referer: new URL(rawUrl).origin + "/"
+        }
+      });
+
+      if (probe.status >= 400) {
+        throw new ResolverError(
+          "DESTINATION_NOT_FOUND",
+          "The resolved destination is not reachable."
+        );
+      }
+
+      const contentType = probe.headers.get("content-type")?.toLowerCase() ?? "";
+      if (contentType.startsWith("text/html") &&
+          !/(download|attachment|octet-stream)/i.test(probe.headers.get("content-disposition") ?? "")) {
+        throw new ResolverError(
+          "DESTINATION_NOT_FOUND",
+          "The resolved destination is still a web page."
+        );
+      }
+
       return {
         ok: true,
         providerId,
-        destinationUrl: destination.toString(),
+        destinationUrl: probe.url,
         meta: success.meta
       };
     } catch (error) {
