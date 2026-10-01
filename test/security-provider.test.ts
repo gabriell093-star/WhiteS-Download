@@ -51,3 +51,15 @@ test("SSRF guard rejects private and reserved literal IPs", async () => {
     );
   }
 });
+
+import { shouldBlockRequest } from "../src/browser/adblock.js";
+
+test("browser ad filter blocks common advertising endpoints", () => {
+  assert.equal(shouldBlockRequest("https://doubleclick.net/pagead/test.js"), true);
+  assert.equal(shouldBlockRequest("https://ads.example.com/adserver/script.js"), true);
+});
+
+test("browser ad filter keeps ordinary provider and destination URLs", () => {
+  assert.equal(shouldBlockRequest("https://sfile.co/j9YYjNJfpvI"), false);
+  assert.equal(shouldBlockRequest("https://example.com/download/file.zip"), false);
+});
