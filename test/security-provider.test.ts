@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { SfileProvider } from "../src/providers/sfile/sfile.provider.js";
+import { Deadline } from "../src/core/deadline.js";
+import { assertPublicEndpoint } from "../src/security/ssrf.js";
 import { ResolverError } from "../src/core/errors.js";
 import { parseAndValidateUrl } from "../src/security/urlValidator.js";
 
@@ -37,8 +39,13 @@ test("SSRF guard rejects private and reserved literal IPs", async () => {
     "http://[::1]/",
     "http://[fc00::1]/"
   ]) {
-    assert.throws(
-      () => parseAndValidateUrl(candidate),
+    await assert.rejects(
+      async () => {
+        await assertPublicEndpoint(
+          parseAndValidateUrl(candidate),
+          new Deadline(1_000)
+        );
+      },
       (error: unknown) =>
         error instanceof ResolverError && error.code === "SECURITY_BLOCKED"
     );
