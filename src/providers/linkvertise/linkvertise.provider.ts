@@ -14,7 +14,7 @@ export class LinkvertiseProvider implements Provider {
     id: "linkvertise",
     label: "Linkvertise",
     hostnames: HOSTNAMES,
-    enabled: false,
+    enabled: true,
     requiresBrowser: true
   } as const;
 
@@ -23,9 +23,8 @@ export class LinkvertiseProvider implements Provider {
   }
 
   async resolve(url: URL, ctx: ProviderContext): Promise<ResolutionSuccess> {
-    let response;
     try {
-      response = await ctx.http.fetchText(url, ctx.deadline);
+      const response = await ctx.http.fetchText(url, ctx.deadline);
       const finalUrl = new URL(response.url);
 
       if (!sameHost(finalUrl.hostname)) {
@@ -44,10 +43,8 @@ export class LinkvertiseProvider implements Provider {
         url,
         ctx,
         HOSTNAMES,
-        [
-          "button"
-        ],
-        8
+        [],
+        10
       )
     };
   }
