@@ -33,9 +33,11 @@ export class DropgalaxyProvider implements Provider {
           "#downloadBtn",
           "#dl",
           "button#dl",
-          "#dllink"
+          "#dllink",
+          "button[id^='method_fre' i]",
+          "button[id^='downloadBtn' i]"
         ],
-        10
+        12
       )
     };
   }
