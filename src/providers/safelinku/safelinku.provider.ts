@@ -19,7 +19,7 @@ export class SafelinkuProvider implements Provider {
     id: "safelinku",
     label: "SafelinkU / SFL",
     hostnames: HOSTNAMES,
-    enabled: false,
+    enabled: true,
     requiresBrowser: true
   } as const;
 
