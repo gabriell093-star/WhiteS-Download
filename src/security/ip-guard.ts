@@ -12,7 +12,9 @@ interface GuardDecision {
   token?: string;
 }
 
-interface IpGuardEnv {}\n\nexport class IpGuard extends DurableObject<IpGuardEnv> {
+interface IpGuardEnv {}
+
+export class IpGuard extends DurableObject<IpGuardEnv> {
   constructor(ctx: DurableObjectState, env: IpGuardEnv) {
     super(ctx, env);
 
