@@ -140,7 +140,7 @@ export async function runBrowserFlow(
 
         const captcha = Boolean(challengeElement);
 
-        const providerActions = providerSelectors.filter((selector) => {
+        const providerActions = providerSelectors.filter((selector: string) => {
           try {
             const element = document.querySelector(selector);
             return Boolean(element && visible(element) && enabled(element));
