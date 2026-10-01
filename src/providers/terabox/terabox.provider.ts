@@ -64,7 +64,7 @@ export class TeraboxProvider implements Provider {
     id: "terabox",
     label: "TeraBox",
     hostnames: HOSTNAMES,
-    enabled: true,
+    enabled: false,
     requiresBrowser: false
   } as const;
 
