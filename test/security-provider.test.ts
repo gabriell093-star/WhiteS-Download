@@ -39,8 +39,8 @@ test("SSRF guard rejects private and reserved literal IPs", async () => {
     "http://[::1]/",
     "http://[fc00::1]/"
   ]) {
-    await assert.rejects(
-      () => assertPublicEndpoint(parseAndValidateUrl(candidate), new Deadline(1_000)),
+    assert.throws(
+      () => parseAndValidateUrl(candidate),
       (error: unknown) =>
         error instanceof ResolverError && error.code === "SECURITY_BLOCKED"
     );
