@@ -15,7 +15,21 @@ Cloudflare Workers-based automatic URL resolver.
 
 ## Current provider status
 
-Sfile.mobi is implemented as **v0.1 / not live-verified**. Do not treat it as production-supported until a real public test URL succeeds.
+Resolver modules are present for the current provider target set, but certification is gated by runtime verification. **Only providers with `meta.enabled: true` are active in the public engine.**
+
+Current active provider:
+- Sfile
+
+Staged, not yet certified:
+- SafelinkU / SFL family (including Semawur)
+- Linkvertise
+- Ouo
+- MegaUp
+- DropGalaxy
+- TeraBox
+- DoodStream
+
+Do not treat staged providers as production-supported until their public runtime flow and destination download probe succeed.
 
 ## Cloudflare
 
