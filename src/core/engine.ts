@@ -33,7 +33,7 @@ export class ResolverEngine {
 
       providerId = provider.meta.id;
 
-      const deadline = new Deadline(15_000);
+      const deadline = new Deadline(20_000);
       const context: ProviderContext = {
         http: this.http,
         deadline,
