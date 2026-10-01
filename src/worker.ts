@@ -4,9 +4,6 @@ import { ProviderRegistry } from "./core/registry.js";
 import { createDefaultProviders } from "./providers/index.js";
 import { createBrowserAutomation } from "./browser/automation.js";
 import { IpGuard } from "./security/ip-guard.js";
-import { Deadline } from "./core/deadline.js";
-import { assertPublicEndpoint } from "./security/ssrf.js";
-import puppeteer from "@cloudflare/puppeteer";
 
 interface Env {
   BROWSER: unknown;
@@ -96,62 +93,6 @@ export default {
           "content-type": "text/plain; charset=utf-8"
         }
       });
-    }
-
-    if (request.method === "GET" && url.pathname === "/api/runtime-check") {
-      const checks = {
-        ssrfPublic: false,
-        ssrfPrivateBlocked: false,
-        dnsStable: false,
-        browserBinding: false
-      };
-
-      try {
-        await assertPublicEndpoint(
-          new URL("https://example.com/"),
-          new Deadline(5_000)
-        );
-        checks.ssrfPublic = true;
-      } catch {}
-
-      try {
-        await assertPublicEndpoint(
-          new URL("http://127.0.0.1/"),
-          new Deadline(5_000)
-        );
-      } catch (error) {
-        checks.ssrfPrivateBlocked =
-          error instanceof ResolverError &&
-          error.code === "SECURITY_BLOCKED";
-      }
-
-      try {
-        const browser = await puppeteer.launch(
-          env.BROWSER as Parameters<typeof puppeteer.launch>[0]
-        );
-        const page = await browser.newPage();
-        await page.goto("https://example.com/", {
-          waitUntil: "domcontentloaded",
-          timeout: 5_000
-        });
-        checks.browserBinding = page.url().startsWith("https://example.com/");
-        await browser.close();
-      } catch {}
-
-      checks.dnsStable = checks.ssrfPublic;
-
-      return Response.json(
-        {
-          ok: Object.values(checks).every(Boolean),
-          checks
-        },
-        {
-          status: Object.values(checks).every(Boolean) ? 200 : 503,
-          headers: {
-            "cache-control": "no-store"
-          }
-        }
-      );
     }
 
     if (request.method === "POST" && url.pathname === "/api/resolve") {
