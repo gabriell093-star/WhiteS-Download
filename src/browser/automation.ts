@@ -4,6 +4,8 @@ import puppeteer from "@cloudflare/puppeteer";
 export interface BrowserPage {
   url(): string;
   html(): Promise<string>;
+  evaluate<T>(pageFunction: () => T): Promise<T>;
+  click(selector: string): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -18,7 +20,9 @@ export interface BrowserBinding {
 export function createBrowserAutomation(binding: BrowserBinding): BrowserAutomation {
   return {
     async open(url, options = {}) {
-      const browser = await puppeteer.launch(binding.browser as Parameters<typeof puppeteer.launch>[0]);
+      const browser = await puppeteer.launch(
+        binding.browser as Parameters<typeof puppeteer.launch>[0]
+      );
       const page = await browser.newPage();
 
       try {
@@ -28,12 +32,21 @@ export function createBrowserAutomation(binding: BrowserBinding): BrowserAutomat
         });
       } catch (error) {
         await browser.close();
-        throw new ResolverError("RESOLUTION_FAILED", "Browser navigation failed.", true, { cause: error });
+        throw new ResolverError(
+          "RESOLUTION_FAILED",
+          "Browser navigation failed.",
+          true,
+          { cause: error }
+        );
       }
 
       return {
         url: () => page.url(),
         html: () => page.content(),
+        evaluate: <T>(fn: () => T) => page.evaluate(fn),
+        click: async (selector: string) => {
+          await page.click(selector);
+        },
         close: async () => {
           await browser.close();
         }
