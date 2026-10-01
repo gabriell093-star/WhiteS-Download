@@ -6,6 +6,7 @@ import { createBrowserAutomation } from "./browser/automation.js";
 import { IpGuard } from "./security/ip-guard.js";
 
 interface Env {
+  ASSETS: Fetcher;
   BROWSER: unknown;
   IP_GUARD: DurableObjectNamespace<IpGuard>;
 }
@@ -87,12 +88,15 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/") {
-      return new Response("WhiteS Download Worker is running.", {
-        headers: {
-          "content-type": "text/plain; charset=utf-8"
+    if (request.method === "GET" && url.pathname === "/health") {
+      return Response.json(
+        { ok: true, service: "whites-download" },
+        {
+          headers: {
+            "cache-control": "no-store"
+          }
         }
-      });
+      );
     }
 
     if (request.method === "POST" && url.pathname === "/api/resolve") {
@@ -164,6 +168,6 @@ export default {
       }
     }
 
-    return new Response("Not Found", { status: 404 });
+    return env.ASSETS.fetch(request);
   }
 };
