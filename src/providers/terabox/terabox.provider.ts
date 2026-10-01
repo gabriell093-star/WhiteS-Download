@@ -70,14 +70,21 @@ function extractString(
   names: readonly ("jsToken" | "jstoken" | "js_token" | "dp-logid" | "dp_logid" | "dplogid")[]
 ): string | null {
   for (const name of names) {
+    if (name === "jsToken" || name === "jstoken" || name === "js_token") {
+      const match = body.match(
+        /(?:["']?jsToken["']?|["']?jstoken["']?|["']?js_token["']?)\s*[:=]\s*["']([^"']+)["']/i
+      );
+      if (match?.[1]) return match[1];
+      continue;
+    }
 
-  if (/js/i.test(name)) {
-    const match = body.match(/(?:["']?jsToken["']?|["']?jstoken["']?|["']?js_token["']?)\\s*[:=]\\s*["']([^"']+)["']/i);
-    return match?.[1] ?? null;
+    const match = body.match(
+      /(?:["']?dp-logid["']?|["']?dp_logid["']?|["']?dplogid["']?)\s*[:=]\s*["']?([0-9]+)["']?/i
+    );
+    if (match?.[1]) return match[1];
   }
 
-  const match = body.match(/(?:["']?dp-logid["']?|["']?dp_logid["']?|["']?dplogid["']?)\\s*[:=]\\s*["']?([0-9]+)["']?/i);
-  return match?.[1] ?? null;
+  return null;
 }
 
 function firstFile(response: ShareListResponse): ShareFile | null {
