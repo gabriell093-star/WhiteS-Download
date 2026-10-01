@@ -64,10 +64,6 @@ function isLikelyDownloadUrl(rawUrl: string): boolean {
   }
 }
 
-function normalizeText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
-}
-
 
 export async function runBrowserFlow(
   url: URL,
