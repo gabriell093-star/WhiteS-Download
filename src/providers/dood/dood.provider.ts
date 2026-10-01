@@ -57,10 +57,20 @@ export class DoodProvider implements Provider {
     );
 
     if (!match?.[0] || !match[1]) {
-      throw new ResolverError(
-        "PROVIDER_CHANGED",
-        "DoodStream did not expose its media token."
+      const browserUrl = await import("../browser-lane.js").then(({ runBrowserFlow }) =>
+        runBrowserFlow(url, ctx, HOSTNAMES, [
+          "a[href*='/e/']",
+          "#download",
+          "#downloadBtn",
+          "#dl"
+        ], 10)
       );
+
+      return {
+        ok: true,
+        providerId: this.meta.id,
+        destinationUrl: browserUrl
+      };
     }
 
     const token = match[1];
