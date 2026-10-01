@@ -278,7 +278,10 @@ export class TeraboxProvider implements Provider {
         const html = document.documentElement.innerHTML;
         const find = (names: string[]): string | null => {
           for (const name of names) {
-            const re = new RegExp('(?:["\\']' + name + '["\\']|\\b' + name + '\\b)\\s*[:=]\\s*["\\']([^"\\']+)["\\']', "i");
+            const re =
+              name === "jsToken" || name === "jstoken" || name === "js_token"
+                ? /(?:["']?jsToken["']?|["']?jstoken["']?|["']?js_token["']?)\\s*[:=]\\s*["']([^"']+)["']/i
+                : /(?:["']?dp-logid["']?|["']?dp_logid["']?|["']?dplogid["']?)\\s*[:=]\\s*["']?([0-9]+)["']?/i;
             const match = html.match(re);
             if (match?.[1]) return match[1];
           }
