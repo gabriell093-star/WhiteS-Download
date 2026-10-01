@@ -12,8 +12,8 @@ interface GuardDecision {
   token?: string;
 }
 
-export class IpGuard extends DurableObject {
-  constructor(ctx: DurableObjectState, env: unknown) {
+interface IpGuardEnv {}\n\nexport class IpGuard extends DurableObject<IpGuardEnv> {
+  constructor(ctx: DurableObjectState, env: IpGuardEnv) {
     super(ctx, env);
 
     ctx.blockConcurrencyWhile(async () => {
@@ -37,7 +37,7 @@ export class IpGuard extends DurableObject {
     });
   }
 
-  async fetch(request: Request): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === "POST" && url.pathname === "/acquire") {
