@@ -10,6 +10,32 @@ function sameHost(hostname: string): boolean {
   return HOSTNAMES.some((candidate) => host === candidate || host.endsWith("." + candidate));
 }
 
+function findHttpTargets(body: string, baseUrl: string): string[] {
+  const targets: string[] = [];
+  const add = (raw: string | undefined) => {
+    if (!raw || !/^https?:\/\//i.test(raw)) return;
+    try {
+      targets.push(new URL(raw.replace(/&amp;/g, "&"), baseUrl).toString());
+    } catch {}
+  };
+
+  const direct = body.match(
+    /(?:data-direct-download|data-direct-smartlink|href)\s*=\s*(?:"|')?(https?:\/\/[^"'\s>]+)/gi
+  );
+  for (const raw of direct ?? []) {
+    add(raw.replace(/^(?:data-direct-download|data-direct-smartlink|href)\s*=\s*(?:"|')?/i, ""));
+  }
+
+  for (const match of body.matchAll(/https?:\/\/[^"'\s<>]+/gi)) {
+    const raw = match[0];
+    if (/\/download\/|\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:[?#]|$)/i.test(raw)) {
+      add(raw);
+    }
+  }
+
+  return [...new Set(targets)];
+}
+
 export class SfileProvider implements Provider {
   readonly meta = {
     id: "sfile",
@@ -51,6 +77,7 @@ export class SfileProvider implements Provider {
     }
 
     const anchorRe = /<a\b[^>]*?href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))[^>]*>([\s\S]*?)<\/a\s*>/gi;
+    const downloadPages: string[] = [];
 
     for (const match of page.body.matchAll(anchorRe)) {
       const href = match[1] ?? match[2] ?? match[3] ?? "";
@@ -65,8 +92,19 @@ export class SfileProvider implements Provider {
         const candidate = new URL(href, page.url);
         if (candidate.protocol !== "http:" && candidate.protocol !== "https:") continue;
 
-        if (!sameHost(candidate.hostname) &&
-            (/download|direct|save/i.test(text) || /\/downloadfile\//i.test(candidate.pathname))) {
+        if (
+          sameHost(candidate.hostname) &&
+          /^\/download\//i.test(candidate.pathname) &&
+          (candidate.searchParams.has("fid") || /download file|download now/i.test(text))
+        ) {
+          downloadPages.push(candidate.toString());
+          continue;
+        }
+
+        if (
+          !sameHost(candidate.hostname) &&
+          (/download|direct|save/i.test(text) || /\/downloadfile\//i.test(candidate.pathname))
+        ) {
           return {
             ok: true,
             providerId: this.meta.id,
@@ -76,16 +114,46 @@ export class SfileProvider implements Provider {
       } catch {}
     }
 
-    const directDownload = page.body.match(
-      /(?:data-direct-download|href)\s*=\s*(?:"|')?(https?:\/\/[^"'\s>]+\.(?:zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:\?[^"'\s>]*)?)/i
-    );
+    const directTargets = findHttpTargets(page.body, page.url);
+    for (const target of directTargets) {
+      const candidate = new URL(target);
+      if (!sameHost(candidate.hostname)) {
+        return {
+          ok: true,
+          providerId: this.meta.id,
+          destinationUrl: candidate.toString()
+        };
+      }
+    }
 
-    if (directDownload?.[1]) {
-      return {
-        ok: true,
-        providerId: this.meta.id,
-        destinationUrl: new URL(directDownload[1].replace(/&amp;/g, "&")).toString()
-      };
+    for (const downloadUrl of [...new Set(downloadPages)]) {
+      try {
+        const downloadPage = await ctx.http.fetchText(
+          downloadUrl,
+          ctx.deadline,
+          { headers: { referer: page.url, accept: "text/html,application/xhtml+xml" } }
+        );
+
+        const targets = findHttpTargets(downloadPage.body, downloadPage.url);
+        for (const target of targets) {
+          const candidate = new URL(target);
+          if (!sameHost(candidate.hostname)) {
+            return {
+              ok: true,
+              providerId: this.meta.id,
+              destinationUrl: candidate.toString()
+            };
+          }
+
+          if (/\/download\/[^/]+\/[^/]+\//i.test(candidate.pathname)) {
+            return {
+              ok: true,
+              providerId: this.meta.id,
+              destinationUrl: candidate.toString()
+            };
+          }
+        }
+      } catch {}
     }
 
     const scriptTarget = page.body.match(
@@ -108,6 +176,7 @@ export class SfileProvider implements Provider {
         ctx,
         HOSTNAMES,
         [
+          "#download",
           "#downloadBtn",
           "#downloadbtn",
           "#download-now",
