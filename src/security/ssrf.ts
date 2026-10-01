@@ -4,7 +4,6 @@ import { isBlockedIp } from "./ipBlocker.js";
 import { assertSafeUrlSyntax } from "./urlValidator.js";
 
 async function resolveDns(hostname: string): Promise<string[]> {
-  // Cloudflare Workers' node:dns support provides resolve4/resolve6 through DNS-over-HTTPS.
   const dns = await import("node:dns/promises");
   const [v4, v6] = await Promise.allSettled([
     dns.resolve4(hostname),
@@ -14,13 +13,44 @@ async function resolveDns(hostname: string): Promise<string[]> {
   const addresses = [
     ...(v4.status === "fulfilled" ? v4.value : []),
     ...(v6.status === "fulfilled" ? v6.value : [])
-  ];
+  ]
+    .map((address) => address.trim().toLowerCase())
+    .filter(Boolean);
 
   if (addresses.length === 0) {
-    throw new ResolverError("RESOLUTION_FAILED", "The hostname could not be resolved.", true);
+    throw new ResolverError(
+      "RESOLUTION_FAILED",
+      "The hostname could not be resolved.",
+      true
+    );
   }
 
-  return addresses;
+  return [...new Set(addresses)].sort();
+}
+
+function assertAllAddressesPublic(addresses: readonly string[]): void {
+  if (addresses.some(isBlockedIp)) {
+    throw new ResolverError(
+      "SECURITY_BLOCKED",
+      "Destination resolves to a private or reserved address."
+    );
+  }
+}
+
+async function resolveDnsWithDeadline(
+  hostname: string,
+  deadline: Deadline
+): Promise<string[]> {
+  return withTimeout(
+    resolveDns(hostname),
+    Math.max(1, deadline.remainingMs()),
+    () =>
+      new ResolverError(
+        "RESOLUTION_TIMEOUT",
+        "DNS resolution timed out.",
+        true
+      )
+  );
 }
 
 export async function assertPublicEndpoint(
@@ -32,21 +62,32 @@ export async function assertPublicEndpoint(
 
   const host = url.hostname.toLowerCase();
 
-  // DNS is only needed for hostnames. Literal IPs have already been checked.
   if (host.includes(":") || /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
-    if (isBlockedIp(host.replace(/^\[|\]$/g, ""))) {
-      throw new ResolverError("SECURITY_BLOCKED", "Private or reserved IP addresses are blocked.");
+    const ip = host.replace(/^\[|\]$/g, "");
+    if (isBlockedIp(ip)) {
+      throw new ResolverError(
+        "SECURITY_BLOCKED",
+        "Private or reserved IP addresses are blocked."
+      );
     }
     return;
   }
 
-  const addresses = await withTimeout(
-    resolveDns(host),
-    Math.max(1, deadline.remainingMs()),
-    () => new ResolverError("RESOLUTION_TIMEOUT", "DNS resolution timed out.", true)
-  );
+  const first = await resolveDnsWithDeadline(host, deadline);
+  assertAllAddressesPublic(first);
+  deadline.throwIfExpired();
 
-  if (addresses.some(isBlockedIp)) {
-    throw new ResolverError("SECURITY_BLOCKED", "Destination resolves to a private or reserved address.");
+  // Resolve twice to reduce the TOCTOU window and detect DNS-answer churn.
+  const second = await resolveDnsWithDeadline(host, deadline);
+  assertAllAddressesPublic(second);
+
+  if (
+    first.length !== second.length ||
+    first.some((address, index) => address !== second[index])
+  ) {
+    throw new ResolverError(
+      "SECURITY_BLOCKED",
+      "DNS answers changed during security validation."
+    );
   }
 }
