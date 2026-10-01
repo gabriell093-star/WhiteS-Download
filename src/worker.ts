@@ -102,11 +102,21 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/__verify/sfile") {
       const engine = new ResolverEngine(registry);
       const result = await engine.resolve("https://sfile.co/2LmHegMWgw1");
-      return Response.json(result, {
-        headers: {
-          "cache-control": "no-store"
+      const escaped = JSON.stringify(result)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+      return new Response(
+        "<!doctype html><html><body><pre id=\"cert-result\">" +
+          escaped +
+          "</pre></body></html>",
+        {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store"
+          }
         }
-      });
+      );
     }
 
     if (request.method === "POST" && url.pathname === "/api/resolve") {
