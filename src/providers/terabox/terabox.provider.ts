@@ -65,7 +65,12 @@ function extractSurl(url: URL): string | null {
   return null;
 }
 
-function extractString(body: string, name: "jsToken" | "jstoken" | "js_token" | "dp-logid" | "dp_logid" | "dplogid"): string | null {
+function extractString(
+  body: string,
+  names: readonly ("jsToken" | "jstoken" | "js_token" | "dp-logid" | "dp_logid" | "dplogid")[]
+): string | null {
+  for (const name of names) {
+
   if (/js/i.test(name)) {
     const match = body.match(/(?:["']?jsToken["']?|["']?jstoken["']?|["']?js_token["']?)\\s*[:=]\\s*["']([^"']+)["']/i);
     return match?.[1] ?? null;
