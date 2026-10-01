@@ -43,7 +43,8 @@ export class SafeHttpClient {
 
   async fetchText(
     rawUrl: URL | string,
-    deadline: Deadline
+    deadline: Deadline,
+    options: { headers?: Record<string, string> } = {}
   ): Promise<SafeHttpResponse> {
     let current = parseAndValidateUrl(rawUrl.toString());
     let redirects = 0;
@@ -53,7 +54,10 @@ export class SafeHttpClient {
       await assertPublicEndpoint(current, deadline);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), Math.max(1, deadline.remainingMs()));
+      const timeout = setTimeout(
+        () => controller.abort(),
+        Math.max(1, deadline.remainingMs())
+      );
 
       let response: Response;
       try {
@@ -64,7 +68,8 @@ export class SafeHttpClient {
             signal: controller.signal,
             headers: {
               "user-agent": this.userAgent,
-              "accept": "text/html,application/xhtml+xml,*/*;q=0.8"
+              "accept": "text/html,application/xhtml+xml,application/json,*/*;q=0.8",
+              ...options.headers
             }
           }),
           Math.max(1, deadline.remainingMs()),
@@ -86,17 +91,12 @@ export class SafeHttpClient {
         if (redirects >= this.maxRedirects) {
           throw new ResolverError(
             "TOO_MANY_REDIRECTS",
-            `Redirect limit of ${this.maxRedirects} exceeded.`
+            "Redirect limit of " + this.maxRedirects + " exceeded."
           );
         }
 
         redirects += 1;
-        try {
-          current = parseAndValidateUrl(new URL(location, current).toString());
-        } catch (error) {
-          if (error instanceof ResolverError) throw error;
-          throw new ResolverError("RESOLUTION_FAILED", "Invalid redirect location.");
-        }
+        current = parseAndValidateUrl(new URL(location, current).toString());
         continue;
       }
 
@@ -131,7 +131,10 @@ export class SafeHttpClient {
 
         total += result.value.byteLength;
         if (total > this.maxBytes) {
-          throw new ResolverError("RESOLUTION_FAILED", "Response body exceeds the configured size limit.");
+          throw new ResolverError(
+            "RESOLUTION_FAILED",
+            "Response body exceeds the configured size limit."
+          );
         }
 
         chunks.push(result.value);
