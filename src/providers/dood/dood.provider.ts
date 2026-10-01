@@ -28,7 +28,7 @@ export class DoodProvider implements Provider {
     id: "dood",
     label: "DoodStream",
     hostnames: HOSTNAMES,
-    enabled: true,
+    enabled: false,
     requiresBrowser: false
   } as const;
 
