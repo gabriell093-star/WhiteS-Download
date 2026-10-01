@@ -43,8 +43,9 @@ function extractSurl(url: URL): string | null {
 
   const parts = url.pathname.split("/").filter(Boolean);
   const index = parts.findIndex((part) => part.toLowerCase() === "s");
-  if (index >= 0 && parts[index + 1]) {
-    return parts[index + 1].replace(/^1/, "");
+  const value = index >= 0 ? parts[index + 1] : undefined;
+  if (value) {
+    return value.replace(/^1/, "");
   }
 
   return null;
