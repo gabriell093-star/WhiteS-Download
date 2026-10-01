@@ -32,9 +32,11 @@ export class MegaupProvider implements Provider {
           ".download-timer > a",
           "#direct_link > a",
           "a[href*='download.megaup.net']",
-          "#download-now"
+          "#download-now",
+          "input[type='submit'][value*='Create Download Link' i]",
+          "button[type='submit'][value*='Create Download Link' i]"
         ],
-        8
+        10
       )
     };
   }
