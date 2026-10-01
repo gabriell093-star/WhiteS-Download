@@ -14,7 +14,7 @@ export class LinkvertiseProvider implements Provider {
     id: "linkvertise",
     label: "Linkvertise",
     hostnames: HOSTNAMES,
-    enabled: true,
+    enabled: false,
     requiresBrowser: true
   } as const;
 
