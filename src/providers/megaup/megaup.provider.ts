@@ -9,7 +9,7 @@ export class MegaupProvider implements Provider {
     id: "megaup",
     label: "MegaUp",
     hostnames: HOSTNAMES,
-    enabled: true,
+    enabled: false,
     requiresBrowser: true
   } as const;
 
