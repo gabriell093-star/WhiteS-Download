@@ -93,6 +93,92 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (request.method === "GET" && url.pathname === "/api/__cert/sfile") {
+      const providers = createDefaultProviders();
+      const provider = providers.find((item) => item.meta.id === "sfile");
+
+      if (!provider) {
+        return new Response("provider missing", { status: 500 });
+      }
+
+      const rawUrl = "https://sfile.co/j9YYjNJfpvI";
+      const deadline = new (await import("./core/deadline.js")).Deadline(15_000);
+      const http = new (await import("./http/client.js")).SafeHttpClient();
+
+      try {
+        const resolved = await provider.resolve(
+          new URL(rawUrl),
+          {
+            http,
+            deadline,
+            browser: createBrowserAutomation({ browser: env.BROWSER })
+          }
+        );
+
+        const destination = new URL(resolved.destinationUrl);
+        const probe = await http.probe(destination, deadline, {
+          headers: {
+            referer: new URL(rawUrl).origin + "/"
+          }
+        });
+
+        const result = {
+          provider: provider.meta.id,
+          source: rawUrl,
+          resolved: resolved.destinationUrl,
+          probeStatus: probe.status,
+          probeUrl: probe.url,
+          contentType: probe.headers.get("content-type"),
+          contentDisposition: probe.headers.get("content-disposition")
+        };
+
+        const title = JSON.stringify(result)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+
+        return new Response(
+          "<!doctype html><html><head><title>CERT|" +
+            title +
+            "</title></head><body>certification</body></html>",
+          {
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "no-store"
+            }
+          }
+        );
+      } catch (error) {
+        const result = {
+          provider: provider.meta.id,
+          source: rawUrl,
+          error: error instanceof Error ? error.message : String(error),
+          code:
+            error && typeof error === "object" && "code" in error
+              ? String((error as { code: unknown }).code)
+              : "UNKNOWN"
+        };
+        const title = JSON.stringify(result)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+
+        return new Response(
+          "<!doctype html><html><head><title>CERT|" +
+            title +
+            "</title></head><body>certification</body></html>",
+          {
+            headers: {
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "no-store"
+            }
+          }
+        );
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/health") {
       return Response.json(
         {
