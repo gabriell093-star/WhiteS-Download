@@ -54,6 +54,17 @@ function normalizeText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function isLikelyDownloadUrl(rawUrl: string): boolean {
+  try {
+    const candidate = new URL(rawUrl);
+    const path = candidate.pathname.toLowerCase();
+    return /(^|\/)download(\/|$)/.test(path) &&
+      /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path);
+  } catch {
+    return false;
+  }
+}
+
 function isActionText(value: string): boolean {
   return /^(download(?: file| now)?|direct download|get link|continue|go to link|start download|generate link|create link|free download|download free|download file|save file)$/i.test(
     normalizeText(value)
@@ -68,8 +79,8 @@ export async function runBrowserFlow(
   maxSteps = 12
 ): Promise<string> {
   const remaining = Math.min(
-    12_000,
-    Math.max(2_000, ctx.deadline.remainingMs() - 500)
+    17_000,
+    Math.max(3_000, ctx.deadline.remainingMs() - 300)
   );
   const page = await ctx.browser.open(url, {
     timeoutMs: Math.min(10_000, remaining)
@@ -201,7 +212,10 @@ export async function runBrowserFlow(
       for (const raw of state.directTargets) {
         try {
           const candidate = new URL(raw, state.url);
-          if (!sameProviderHost(candidate.hostname, providerHosts)) {
+          if (
+            !sameProviderHost(candidate.hostname, providerHosts) ||
+            isLikelyDownloadUrl(candidate.toString())
+          ) {
             await assertPublicEndpoint(candidate, ctx.deadline);
             return candidate.toString();
           }
@@ -223,7 +237,10 @@ export async function runBrowserFlow(
 
       if (state.candidate) {
         const candidate = new URL(state.candidate);
-        if (!sameProviderHost(candidate.hostname, providerHosts)) {
+        if (
+          !sameProviderHost(candidate.hostname, providerHosts) ||
+          isLikelyDownloadUrl(candidate.toString())
+        ) {
           await assertPublicEndpoint(candidate, ctx.deadline);
           return candidate.toString();
         }
