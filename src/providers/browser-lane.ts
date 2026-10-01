@@ -133,7 +133,7 @@ export async function runBrowserFlow(
 
         const actionText = (value: string): boolean =>
           /^(download(?: file| now)?|direct download|get link|continue|go to link|start download|generate link|create link|free download|download free|download file|save file)$/i.test(
-            value.replace(/\\s+/g, " ").trim()
+            value.replace(/\s+/g, " ").trim()
           );
 
         const pageText = document.body?.innerText ?? "";
@@ -222,7 +222,7 @@ export async function runBrowserFlow(
 
             if (
               element instanceof HTMLFormElement ||
-              isActionText(text) ||
+              actionText(text) ||
               /download|direct|continue|get link|generate|create link/i.test(signature)
             ) {
               const marker = "data-whites-action";
