@@ -19,17 +19,11 @@ function getClientIp(request: Request): string {
   return ip && ip.length <= 64 ? ip : "unknown";
 }
 
-async function acquireIpGuard(
-  request: Request,
-  env: Env
-): Promise<{ token: string } | Response> {
+async function acquireIpGuard(request: Request, env: Env): Promise<{ token: string } | Response> {
   const ip = getClientIp(request);
-  const id = env.IP_GUARD.idFromName(`ip:${ip}`);
+  const id = env.IP_GUARD.idFromName("ip:" + ip);
   const stub = env.IP_GUARD.get(id);
-
-  const response = await stub.fetch(
-    new Request("https://ip-guard/acquire", { method: "POST" })
-  );
+  const response = await stub.fetch(new Request("https://ip-guard/acquire", { method: "POST" }));
 
   if (response.ok) {
     const decision = (await response.json()) as { allowed: true; token: string };
@@ -43,43 +37,27 @@ async function acquireIpGuard(
   };
 
   const retryAfter = Math.max(1, decision.retryAfterSeconds ?? 1);
-  const message =
-    decision.code === "RATE_LIMITED"
-      ? "Too many requests from this IP address."
-      : "Too many concurrent resolutions from this IP address.";
+  const message = decision.code === "RATE_LIMITED"
+    ? "Too many requests from this IP address."
+    : "Too many concurrent resolutions from this IP address.";
 
-  return Response.json(
-    {
-      ok: false,
-      error: new ResolverError(decision.code, message, true).toJSON()
-    },
-    {
-      status: 429,
-      headers: {
-        "cache-control": "no-store",
-        "retry-after": String(retryAfter)
-      }
-    }
-  );
+  return Response.json({
+    ok: false,
+    error: new ResolverError(decision.code, message, true).toJSON()
+  }, {
+    status: 429,
+    headers: { "cache-control": "no-store", "retry-after": String(retryAfter) }
+  });
 }
 
-async function releaseIpGuard(
-  request: Request,
-  env: Env,
-  token: string
-): Promise<void> {
+async function releaseIpGuard(request: Request, env: Env, token: string): Promise<void> {
   const ip = getClientIp(request);
-  const id = env.IP_GUARD.idFromName(`ip:${ip}`);
+  const id = env.IP_GUARD.idFromName("ip:" + ip);
   const stub = env.IP_GUARD.get(id);
-
-  await stub.fetch(
-    new Request("https://ip-guard/release", {
-      method: "POST",
-      headers: {
-        "x-whites-lease-token": token
-      }
-    })
-  );
+  await stub.fetch(new Request("https://ip-guard/release", {
+    method: "POST",
+    headers: { "x-whites-lease-token": token }
+  }));
 }
 
 export { IpGuard };
@@ -184,6 +162,76 @@ export default {
           await releaseIpGuard(request, env, lease.token);
         } catch {
           // A short lease expiry remains in force if release cannot be reached.
+        }
+      }
+    }
+
+    return env.ASSETS.fetch(request);
+  }
+};
+    if (request.method === "GET" && url.pathname === "/health") {
+      return Response.json(
+        { ok: true, service: "whites-download" },
+        { headers: { "cache-control": "no-store" } }
+      );
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/resolve") {
+      const lease = await acquireIpGuard(request, env);
+      if (lease instanceof Response) return lease;
+
+      try {
+        let body: unknown;
+
+        try {
+          body = await request.json();
+        } catch {
+          return Response.json(
+            {
+              ok: false,
+              error: {
+                code: "INVALID_URL",
+                message: "Invalid JSON body.",
+                retryable: false
+              }
+            },
+            { status: 400 }
+          );
+        }
+
+        if (
+          typeof body !== "object" ||
+          body === null ||
+          typeof (body as { url?: unknown }).url !== "string"
+        ) {
+          return Response.json(
+            {
+              ok: false,
+              error: {
+                code: "INVALID_URL",
+                message: "Body must contain a URL string.",
+                retryable: false
+              }
+            },
+            { status: 400 }
+          );
+        }
+
+        const engine = new ResolverEngine(registry, {
+          browser: createBrowserAutomation({ browser: env.BROWSER })
+        });
+
+        const result = await engine.resolve((body as { url: string }).url);
+
+        return Response.json(result, {
+          status: result.ok ? 200 : result.error.code === "UNSUPPORTED_PROVIDER" ? 422 : 400,
+          headers: { "cache-control": "no-store" }
+        });
+      } finally {
+        try {
+          await releaseIpGuard(request, env, lease.token);
+        } catch {
+          // The lease expiry remains the fallback if release cannot be reached.
         }
       }
     }

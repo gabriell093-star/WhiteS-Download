@@ -17,13 +17,14 @@ Cloudflare Workers-based automatic URL resolver.
 
 Resolver modules are present for the current provider target set, but certification is gated by runtime verification. **Only providers with `meta.enabled: true` are active in the public engine.**
 
-Current active provider:
-- Sfile
+Current certified providers:
+- None
 
 Staged, not yet certified:
 - SafelinkU / SFL family (including Semawur)
 - Linkvertise
 - Ouo
+- Sfile
 - MegaUp
 - DropGalaxy
 - TeraBox
