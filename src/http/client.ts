@@ -44,7 +44,7 @@ export class SafeHttpClient {
   async fetchText(
     rawUrl: URL | string,
     deadline: Deadline,
-    options: { headers?: Record<string, string> } = {}
+    options: { headers?: Record<string, string>; readBody?: boolean } = {}
   ): Promise<SafeHttpResponse> {
     let current = parseAndValidateUrl(rawUrl.toString());
     let redirects = 0;
@@ -100,7 +100,7 @@ export class SafeHttpClient {
         continue;
       }
 
-      const body = await this.readBody(response, deadline);
+      const body = options.readBody === false ? "" : await this.readBody(response, deadline);
       return {
         status: response.status,
         url: current.toString(),
@@ -108,6 +108,86 @@ export class SafeHttpClient {
         body,
         redirects
       };
+    }
+  }
+
+  async probe(
+    rawUrl: URL | string,
+    deadline: Deadline,
+    options: { headers?: Record<string, string> } = {}
+  ): Promise<{ status: number; url: string; headers: Headers; redirects: number }> {
+    let current = parseAndValidateUrl(rawUrl.toString());
+    let redirects = 0;
+
+    while (true) {
+      deadline.throwIfExpired();
+      await assertPublicEndpoint(current, deadline);
+
+      let response = await this.requestProbe(current, deadline, "HEAD", options.headers);
+      if (response.status === 405 || response.status === 501) {
+        response = await this.requestProbe(current, deadline, "GET", {
+          ...(options.headers ?? {}),
+          range: "bytes=0-0"
+        });
+      }
+
+      const location = response.headers.get("location");
+      if (REDIRECTS.has(response.status) && location) {
+        if (redirects >= this.maxRedirects) {
+          throw new ResolverError(
+            "TOO_MANY_REDIRECTS",
+            "Redirect limit of " + this.maxRedirects + " exceeded."
+          );
+        }
+        redirects += 1;
+        current = parseAndValidateUrl(new URL(location, current).toString());
+        continue;
+      }
+
+      return {
+        status: response.status,
+        url: current.toString(),
+        headers: response.headers,
+        redirects
+      };
+    }
+  }
+
+  private async requestProbe(
+    url: URL,
+    deadline: Deadline,
+    method: "HEAD" | "GET",
+    extraHeaders: Record<string, string> = {}
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(),
+      Math.max(1, deadline.remainingMs())
+    );
+
+    try {
+      return await withTimeout(
+        this.transport.fetch(url, {
+          method,
+          redirect: "manual",
+          signal: controller.signal,
+          headers: {
+            "user-agent": this.userAgent,
+            "accept": "*/*",
+            ...extraHeaders
+          }
+        }),
+        Math.max(1, deadline.remainingMs()),
+        () => new ResolverError("RESOLUTION_TIMEOUT", "Download probe timed out.", true)
+      );
+    } catch (error) {
+      if (controller.signal.aborted) {
+        throw new ResolverError("RESOLUTION_TIMEOUT", "Download probe timed out.", true);
+      }
+      if (error instanceof ResolverError) throw error;
+      throw new ResolverError("RESOLUTION_FAILED", "Download probe failed.", true, { cause: error });
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
