@@ -15,7 +15,7 @@ export class OuoProvider implements Provider {
     id: "ouo",
     label: "Ouo",
     hostnames: HOSTNAMES,
-    enabled: true,
+    enabled: false,
     requiresBrowser: true
   } as const;
 
