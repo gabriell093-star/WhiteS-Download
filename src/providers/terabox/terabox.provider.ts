@@ -65,20 +65,14 @@ function extractSurl(url: URL): string | null {
   return null;
 }
 
-function extractString(body: string, names: readonly string[]): string | null {
-  for (const name of names) {
-    const patterns = [
-      new RegExp('(?:["\\']' + name + '["\\']|\\b' + name + '\\b)\\s*[:=]\\s*["\\']([^"\\']+)["\\']', "i"),
-      new RegExp('["\\']' + name + '["\\']\\s*[:=]\\s*([^,}\\s]+)', "i")
-    ];
-
-    for (const pattern of patterns) {
-      const match = body.match(pattern);
-      if (match?.[1]) return match[1];
-    }
+function extractString(body: string, name: "jsToken" | "jstoken" | "js_token" | "dp-logid" | "dp_logid" | "dplogid"): string | null {
+  if (/js/i.test(name)) {
+    const match = body.match(/(?:["']?jsToken["']?|["']?jstoken["']?|["']?js_token["']?)\\s*[:=]\\s*["']([^"']+)["']/i);
+    return match?.[1] ?? null;
   }
 
-  return null;
+  const match = body.match(/(?:["']?dp-logid["']?|["']?dp_logid["']?|["']?dplogid["']?)\\s*[:=]\\s*["']?([0-9]+)["']?/i);
+  return match?.[1] ?? null;
 }
 
 function firstFile(response: ShareListResponse): ShareFile | null {
