@@ -99,6 +99,16 @@ export default {
       );
     }
 
+    if (request.method === "GET" && url.pathname === "/__verify/sfile") {
+      const engine = new ResolverEngine(registry);
+      const result = await engine.resolve("https://sfile.co/2LmHegMWgw1");
+      return Response.json(result, {
+        headers: {
+          "cache-control": "no-store"
+        }
+      });
+    }
+
     if (request.method === "POST" && url.pathname === "/api/resolve") {
       const lease = await acquireIpGuard(request, env);
       if (lease instanceof Response) return lease;
