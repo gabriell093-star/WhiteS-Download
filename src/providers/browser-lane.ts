@@ -24,13 +24,6 @@ function isLikelyDownloadResponse(entry: {
 
   const contentType = entry.contentType.toLowerCase();
   const disposition = entry.contentDisposition.toLowerCase();
-  const path = (() => {
-    try {
-      return new URL(entry.url).pathname.toLowerCase();
-    } catch {
-      return "";
-    }
-  })();
 
   if (/attachment|filename\s*=/.test(disposition)) return true;
 
@@ -47,22 +40,32 @@ function isLikelyDownloadResponse(entry: {
     return true;
   }
 
-  return /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path);
-}
+  const path = (() => {
+    try {
+      return new URL(entry.url).pathname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
 
-function normalizeText(value: string): string {
-  return value.replace(/\s+/g, " ").trim();
+  return /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path);
 }
 
 function isLikelyDownloadUrl(rawUrl: string): boolean {
   try {
     const candidate = new URL(rawUrl);
     const path = candidate.pathname.toLowerCase();
-    return /(^|\/)download(\/|$)/.test(path) &&
-      /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path);
+    return (
+      /(^|\/)download(\/|$)/.test(path) &&
+      /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path)
+    );
   } catch {
     return false;
   }
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 function isActionText(value: string): boolean {
@@ -82,6 +85,7 @@ export async function runBrowserFlow(
     17_000,
     Math.max(3_000, ctx.deadline.remainingMs() - 300)
   );
+
   const page = await ctx.browser.open(url, {
     timeoutMs: Math.min(10_000, remaining)
   });
@@ -98,76 +102,58 @@ export async function runBrowserFlow(
     for (let step = 0; step < maxSteps && Date.now() < endAt; step += 1) {
       ctx.deadline.throwIfExpired();
 
-      const state = await page.evaluate(() => {
+      const state = await page.evaluate((providerSelectors) => {
         const visible = (el: Element) => {
           const node = el as HTMLElement;
           const style = getComputedStyle(node);
           const rect = node.getBoundingClientRect();
-          return style.display !== "none" &&
+          return (
+            style.display !== "none" &&
             style.visibility !== "hidden" &&
             rect.width > 0 &&
-            rect.height > 0;
+            rect.height > 0
+          );
+        };
+
+        const enabled = (el: Element) => {
+          if (el.hasAttribute("disabled")) return false;
+          const ariaDisabled = el.getAttribute("aria-disabled");
+          if (ariaDisabled === "true") return false;
+
+          const text = (
+            "value" in el
+              ? String((el as HTMLInputElement).value || "")
+              : (el as HTMLElement).innerText || el.textContent || ""
+          )
+            .replace(/\s+/g, " ")
+            .trim();
+
+          return !/^please wait\b/i.test(text);
         };
 
         const pageText = document.body?.innerText ?? "";
-        const captcha = Boolean(
-          document.querySelector(
-            'iframe[src*="captcha"], iframe[src*="hcaptcha"], iframe[src*="turnstile"], .g-recaptcha, [data-sitekey], [name*="captcha" i], [id*="captcha" i]'
+        const challengeElement = Array.from(
+          document.querySelectorAll(
+            'iframe[src*="captcha"], iframe[src*="hcaptcha"], iframe[src*="turnstile"], iframe[src*="challenges.cloudflare.com"], .g-recaptcha, .h-captcha, .cf-turnstile, [data-sitekey], [name*="captcha" i], [id*="captcha" i]'
           )
-        ) || /\bcaptcha\b|recaptcha|hcaptcha|turnstile/i.test(pageText);
+        ).find(visible);
 
-        const candidate = Array.from(document.querySelectorAll("a[href]"))
-          .map((anchor) => {
-            const a = anchor as HTMLAnchorElement;
-            return {
-              href: a.href,
-              text: normalizeText(a.innerText || a.textContent || "")
-            };
-          })
-          .find((entry) => isActionText(entry.text) && entry.href);
+        const captcha = Boolean(challengeElement);
 
-        let actionIndex = 0;
-        const actions: string[] = [];
+        const providerActions = providerSelectors.filter((selector) => {
+          try {
+            const element = document.querySelector(selector);
+            return Boolean(element && visible(element) && enabled(element));
+          } catch {
+            return false;
+          }
+        });
 
         const elements = Array.from(
           document.querySelectorAll(
-            "button, input[type='submit'], input[type='button'], a[href]"
+            "button, input[type='submit'], input[type='button'], a[href], form"
           )
         );
-
-        for (const element of elements) {
-          if (!visible(element)) continue;
-
-          const node = element as HTMLElement;
-          const textValue = normalizeText(
-            "value" in element
-              ? String((element as HTMLInputElement).value || "")
-              : node.innerText || node.textContent || ""
-          );
-
-          const href =
-            element instanceof HTMLAnchorElement
-              ? element.href
-              : element.getAttribute("data-href") ||
-                element.getAttribute("data-url") ||
-                element.getAttribute("data-download") ||
-                element.getAttribute("data-link") ||
-                "";
-
-          const onclick = element.getAttribute("onclick") || "";
-          const actionable =
-            isActionText(textValue) ||
-            /download|direct|continue|get link|generate|create link/i.test(
-              [href, onclick, element.id, element.className?.toString() ?? ""].join(" ")
-            );
-
-          if (!actionable) continue;
-
-          const selector = '[data-whites-action="' + actionIndex + '"]';
-          element.setAttribute("data-whites-action", String(actionIndex));
-          actions.push(selector);
-          actionIndex += 1;
-        }
 
         const directTargets: string[] = [];
 
@@ -178,7 +164,9 @@ export async function runBrowserFlow(
             element.getAttribute("data-href"),
             element.getAttribute("data-url"),
             element.getAttribute("data-download"),
-            element.getAttribute("data-link")
+            element.getAttribute("data-link"),
+            element.getAttribute("data-direct-download"),
+            element.getAttribute("data-smartlink")
           ];
 
           for (const value of values) {
@@ -187,20 +175,79 @@ export async function runBrowserFlow(
             }
           }
 
+          if (element instanceof HTMLFormElement && element.action) {
+            directTargets.push(element.action);
+          }
+
           const onclick = element.getAttribute("onclick") || "";
           for (const match of onclick.matchAll(/https?:\/\/[^"'\s)]+/gi)) {
             directTargets.push(match[0]);
           }
         }
 
+        const candidates = elements
+          .filter((element) => visible(element) && enabled(element))
+          .map((element, index) => {
+            const node = element as HTMLElement;
+            const text = (
+              "value" in element
+                ? String((element as HTMLInputElement).value || "")
+                : node.innerText || node.textContent || ""
+            ).replace(/\s+/g, " ").trim();
+
+            const href =
+              element instanceof HTMLAnchorElement
+                ? element.href
+                : element instanceof HTMLFormElement
+                  ? element.action
+                  : element.getAttribute("data-href") ||
+                    element.getAttribute("data-url") ||
+                    element.getAttribute("data-download") ||
+                    element.getAttribute("data-link") ||
+                    "";
+
+            const onclick = element.getAttribute("onclick") || "";
+            const signature = [
+              text,
+              href,
+              onclick,
+              element.id,
+              element.className?.toString() ?? ""
+            ].join(" ");
+
+            if (
+              element instanceof HTMLFormElement ||
+              isActionText(text) ||
+              /download|direct|continue|get link|generate|create link/i.test(signature)
+            ) {
+              const marker = "data-whites-action";
+              const value = String(index);
+              element.setAttribute(marker, value);
+              return {
+                selector: '[data-whites-action="' + value + '"]',
+                text,
+                href
+              };
+            }
+
+            return null;
+          })
+          .filter((value): value is { selector: string; text: string; href: string } => Boolean(value));
+
+        const candidate = candidates.find(
+          (entry) => isActionText(entry.text) && entry.href
+        );
+
         return {
           url: location.href,
+          pageTextLength: pageText.length,
           captcha,
+          providerActions,
           candidate: candidate?.href ?? null,
-          actions,
+          actions: candidates.map((entry) => entry.selector),
           directTargets
         };
-      });
+      }, selectors);
 
       if (state.captcha) {
         throw new ResolverError(
@@ -224,6 +271,7 @@ export async function runBrowserFlow(
 
       for (const entry of [...page.observedResponses()].reverse()) {
         if (!isLikelyDownloadResponse(entry)) continue;
+
         const candidate = new URL(entry.url);
         await assertPublicEndpoint(candidate, ctx.deadline);
         return candidate.toString();
@@ -246,17 +294,10 @@ export async function runBrowserFlow(
         }
       }
 
-      let selector: string | null = null;
-      for (const item of selectors) {
-        if (state.actions.includes(item)) {
-          selector = item;
-          break;
-        }
-      }
-
-      if (!selector && state.actions.length > 0) {
-        selector = state.actions[0] ?? null;
-      }
+      const selector =
+        state.providerActions[0] ??
+        state.actions[0] ??
+        null;
 
       if (selector) {
         try {
@@ -264,7 +305,8 @@ export async function runBrowserFlow(
         } catch {
           // Navigation or DOM replacement may detach the old execution context.
         }
-        await sleep(650);
+
+        await sleep(900);
         continue;
       }
 
@@ -279,6 +321,7 @@ export async function runBrowserFlow(
 
     for (const entry of [...page.observedResponses()].reverse()) {
       if (!isLikelyDownloadResponse(entry)) continue;
+
       const candidate = new URL(entry.url);
       await assertPublicEndpoint(candidate, ctx.deadline);
       return candidate.toString();
