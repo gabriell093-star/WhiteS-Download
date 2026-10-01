@@ -37,12 +37,10 @@ export class OuoProvider implements Provider {
         };
       }
 
-      if (/captcha|recaptcha|hcaptcha|turnstile/i.test(page.body)) {
-        throw new ResolverError(
-          "RESOLUTION_UNSUPPORTED",
-          "Ouo requires a CAPTCHA or verification challenge."
-        );
-      }
+      // Do not reject pages merely because their JavaScript bundle contains
+      // CAPTCHA/reCAPTCHA strings. Invisible reCAPTCHA v3 is commonly present
+      // even when no user-facing challenge is shown. The browser lane makes
+      // the final decision based on a visible challenge element.
     } catch (error) {
       if (error instanceof ResolverError && error.code === "RESOLUTION_UNSUPPORTED") {
         throw error;
