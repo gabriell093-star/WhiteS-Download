@@ -20,6 +20,7 @@ export class ProviderRegistry {
 
   detect(url: URL): Provider | null {
     for (const provider of this.providers.values()) {
+      if (!provider.meta.enabled) continue;
       if (this.disabled.has(provider.meta.id)) continue;
       try {
         if (provider.detect(url)) return provider;
