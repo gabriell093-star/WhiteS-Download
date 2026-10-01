@@ -14,7 +14,7 @@ export class SfileProvider implements Provider {
     id: "sfile",
     label: "Sfile",
     hostnames: HOSTNAMES,
-    enabled: false,
+    enabled: true,
     requiresBrowser: false
   } as const;
 
