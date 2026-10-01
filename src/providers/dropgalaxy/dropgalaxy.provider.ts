@@ -9,7 +9,7 @@ export class DropgalaxyProvider implements Provider {
     id: "dropgalaxy",
     label: "DropGalaxy",
     hostnames: HOSTNAMES,
-    enabled: false,
+    enabled: true,
     requiresBrowser: true
   } as const;
 
