@@ -3,7 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 const RATE_WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 10;
 const MAX_CONCURRENT = 5;
-const LEASE_MS = 15_000;
+const LEASE_MS = 20_000;
 
 interface GuardDecision {
   allowed: boolean;
