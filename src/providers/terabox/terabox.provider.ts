@@ -168,7 +168,7 @@ async function resolveWithPublicShareApi(
       ok: true,
       providerId: "terabox",
       destinationUrl: new URL(file.dlink).toString(),
-      meta: { filename: file.server_filename || "unknown" }
+      meta: { filename: file?.server_filename || "unknown" }
     };
   }
 
