@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { SfileProvider } from "../src/providers/sfile/sfile.provider.js";
-import { Deadline } from "../src/core/deadline.js";
 import { ResolverError } from "../src/core/errors.js";
-import { assertPublicEndpoint } from "../src/security/ssrf.js";
 import { parseAndValidateUrl } from "../src/security/urlValidator.js";
 
 test("Sfile provider detects supported hostnames only", () => {
