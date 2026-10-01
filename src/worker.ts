@@ -99,7 +99,7 @@ export default {
       );
     }
 
-    if (request.method === "GET" && url.pathname === "/__verify/sfile") {
+    if (request.method === "GET" && url.pathname === "/api/__verify/sfile") {
       const engine = new ResolverEngine(registry);
       const result = await engine.resolve("https://sfile.co/2LmHegMWgw1");
       return Response.json(result, {
