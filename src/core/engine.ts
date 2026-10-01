@@ -86,6 +86,12 @@ export class ResolverEngine {
         };
       }
 
+      console.error("[WhiteS] resolve failure", {
+        providerId,
+        name: error instanceof Error ? error.name : "UnknownError",
+        message: error instanceof Error ? error.message : String(error)
+      });
+
       return {
         ok: false,
         providerId,
