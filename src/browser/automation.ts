@@ -29,9 +29,28 @@ export interface BrowserBinding {
 export function createBrowserAutomation(binding: BrowserBinding): BrowserAutomation {
   return {
     async open(url, options = {}) {
-      const browser = await puppeteer.launch(
-        binding.browser as Parameters<typeof puppeteer.launch>[0]
-      );
+      let browser: Awaited<ReturnType<typeof puppeteer.launch>>;
+      try {
+        browser = await puppeteer.launch(
+          binding.browser as Parameters<typeof puppeteer.launch>[0]
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/\b429\b|rate limit exceeded/i.test(message)) {
+          throw new ResolverError(
+            "RATE_LIMITED",
+            "Browser automation is temporarily rate-limited.",
+            true
+          );
+        }
+        throw new ResolverError(
+          "RESOLUTION_FAILED",
+          "Browser automation could not be started.",
+          true,
+          { cause: error }
+        );
+      }
+
       const page = await browser.newPage();
       const observedResponses: BrowserObservedResponse[] = [];
       const seenResponseUrls = new Set<string>();
