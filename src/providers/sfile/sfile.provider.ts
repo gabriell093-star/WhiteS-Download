@@ -156,6 +156,71 @@ export class SfileProvider implements Provider {
       } catch {}
     }
 
+    const browserPage = await ctx.browser.open(url, {
+      timeoutMs: Math.min(10_000, Math.max(4_000, ctx.deadline.remainingMs() - 500))
+    });
+
+    try {
+      const directTarget = await browserPage.evaluate(async () => {
+        const sleep = (ms: number) =>
+          new Promise((resolve) => setTimeout(resolve, ms));
+
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          const anchor =
+            document.querySelector<HTMLAnchorElement>("#download") ??
+            Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href*='/download/']")).find(
+              (candidate) => /download file|download now/i.test(candidate.textContent || "")
+            );
+
+          const href = anchor?.href ?? "";
+          if (href && /\/download\//i.test(href)) {
+            try {
+              const response = await fetch(href, { credentials: "include" });
+              const html = await response.text();
+              const doc = new DOMParser().parseFromString(html, "text/html");
+
+              const direct =
+                doc.querySelector("[data-direct-download]")?.getAttribute("data-direct-download") ||
+                doc.querySelector("[data-direct-smartlink]")?.getAttribute("data-direct-smartlink") ||
+                Array.from(doc.querySelectorAll<HTMLAnchorElement>("a[href]"))
+                  .map((a) => a.href)
+                  .find((candidate) =>
+                    /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:[?#]|$)/i.test(candidate)
+                  ) ||
+                "";
+
+              if (direct) {
+                return direct.replace(/&amp;/g, "&");
+              }
+            } catch {}
+          }
+
+          const text = (anchor?.textContent || "").trim();
+          if (/^please wait\b/i.test(text) || !href) {
+            await sleep(750);
+            continue;
+          }
+
+          try {
+            anchor?.click();
+          } catch {}
+          await sleep(900);
+        }
+
+        return null;
+      });
+
+      if (directTarget) {
+        return {
+          ok: true,
+          providerId: this.meta.id,
+          destinationUrl: new URL(directTarget).toString()
+        };
+      }
+    } finally {
+      await browserPage.close();
+    }
+
     const scriptTarget = page.body.match(
       /(?:window\.location|location)\.(?:href|replace)\s*(?:=|\()\s*["'](https?:\/\/[^"']+)["']/i
     );
