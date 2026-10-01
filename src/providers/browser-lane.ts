@@ -14,12 +14,58 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isLikelyDownloadResponse(entry: {
+  url: string;
+  status: number;
+  contentType: string;
+  contentDisposition: string;
+}): boolean {
+  if (entry.status < 200 || entry.status >= 400) return false;
+
+  const contentType = entry.contentType.toLowerCase();
+  const disposition = entry.contentDisposition.toLowerCase();
+  const path = (() => {
+    try {
+      return new URL(entry.url).pathname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+
+  if (/attachment|filename\s*=/.test(disposition)) return true;
+
+  if (
+    contentType.startsWith("application/octet-stream") ||
+    contentType.startsWith("application/zip") ||
+    contentType.startsWith("application/x-rar") ||
+    contentType.startsWith("application/x-7z") ||
+    contentType.startsWith("application/x-gzip") ||
+    contentType.startsWith("application/pdf") ||
+    contentType.startsWith("video/") ||
+    contentType.startsWith("audio/")
+  ) {
+    return true;
+  }
+
+  return /\.(zip|rar|7z|tar|gz|bz2|apk|exe|msi|iso|pdf|mp4|mkv|avi|mov|mp3|m4a|flac|wav)(?:$|[?#])/i.test(path);
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function isActionText(value: string): boolean {
+  return /^(download(?: file| now)?|direct download|get link|continue|go to link|start download|generate link|create link|free download|download free|download file|save file)$/i.test(
+    normalizeText(value)
+  );
+}
+
 export async function runBrowserFlow(
   url: URL,
   ctx: ProviderContext,
   providerHosts: readonly string[],
   selectors: readonly string[],
-  maxSteps = 10
+  maxSteps = 12
 ): Promise<string> {
   const remaining = Math.min(
     12_000,
@@ -45,9 +91,11 @@ export async function runBrowserFlow(
         const visible = (el: Element) => {
           const node = el as HTMLElement;
           const style = getComputedStyle(node);
+          const rect = node.getBoundingClientRect();
           return style.display !== "none" &&
             style.visibility !== "hidden" &&
-            node.offsetParent !== null;
+            rect.width > 0 &&
+            rect.height > 0;
         };
 
         const pageText = document.body?.innerText ?? "";
@@ -55,48 +103,91 @@ export async function runBrowserFlow(
           document.querySelector(
             'iframe[src*="captcha"], iframe[src*="hcaptcha"], iframe[src*="turnstile"], .g-recaptcha, [data-sitekey], [name*="captcha" i], [id*="captcha" i]'
           )
-        ) || /captcha|recaptcha|hcaptcha|turnstile/i.test(pageText);
+        ) || /\bcaptcha\b|recaptcha|hcaptcha|turnstile/i.test(pageText);
 
         const candidate = Array.from(document.querySelectorAll("a[href]"))
           .map((anchor) => {
             const a = anchor as HTMLAnchorElement;
             return {
               href: a.href,
-              text: (a.innerText || a.textContent || "").trim()
+              text: normalizeText(a.innerText || a.textContent || "")
             };
           })
-          .find((entry) =>
-            /^(open link|download|direct download|get link|continue|go to link)$/i.test(entry.text)
+          .find((entry) => isActionText(entry.text) && entry.href);
+
+        let actionIndex = 0;
+        const actions: string[] = [];
+
+        const elements = Array.from(
+          document.querySelectorAll(
+            "button, input[type='submit'], input[type='button'], a[href]"
+          )
+        );
+
+        for (const element of elements) {
+          if (!visible(element)) continue;
+
+          const node = element as HTMLElement;
+          const textValue = normalizeText(
+            "value" in element
+              ? String((element as HTMLInputElement).value || "")
+              : node.innerText || node.textContent || ""
           );
 
-        const actions = [
-          "#submit-button",
-          "#btn-2",
-          "#btn-3",
-          "#verify > a",
-          "#verify > button",
-          "#first_open_button_page_1",
-          "#second_open_placeholder a",
-          "#method_free",
-          "#downloadBtnClick",
-          "#downloadbtn",
-          "#downloadBtn",
-          "#direct_link > a",
-          ".download-timer > a",
-          "#download-now",
-          "#dl",
-          "button#dl",
-          "a#download"
-        ].filter((selector) => {
-          const el = document.querySelector(selector);
-          return Boolean(el && visible(el));
-        });
+          const href =
+            element instanceof HTMLAnchorElement
+              ? element.href
+              : element.getAttribute("data-href") ||
+                element.getAttribute("data-url") ||
+                element.getAttribute("data-download") ||
+                element.getAttribute("data-link") ||
+                "";
+
+          const onclick = element.getAttribute("onclick") || "";
+          const actionable =
+            isActionText(textValue) ||
+            /download|direct|continue|get link|generate|create link/i.test(
+              [href, onclick, element.id, element.className?.toString() ?? ""].join(" ")
+            );
+
+          if (!actionable) continue;
+
+          const selector = '[data-whites-action="' + actionIndex + '"]';
+          element.setAttribute("data-whites-action", String(actionIndex));
+          actions.push(selector);
+          actionIndex += 1;
+        }
+
+        const directTargets: string[] = [];
+
+        for (const element of elements) {
+          if (!visible(element)) continue;
+
+          const values = [
+            element.getAttribute("data-href"),
+            element.getAttribute("data-url"),
+            element.getAttribute("data-download"),
+            element.getAttribute("data-link")
+          ];
+
+          for (const value of values) {
+            if (value && /^https?:\/\//i.test(value)) {
+              directTargets.push(value);
+            }
+          }
+
+          const onclick = element.getAttribute("onclick") || "";
+          for (const match of onclick.matchAll(/https?:\/\/[^"'\s)]+/gi)) {
+            directTargets.push(match[0]);
+          }
+        }
 
         return {
           url: location.href,
           captcha,
           candidate: candidate?.href ?? null,
-          actions
+          actions,
+          directTargets
         };
       });
 
@@ -105,6 +196,23 @@ export async function runBrowserFlow(
           "RESOLUTION_UNSUPPORTED",
           "The provider requires a CAPTCHA or browser challenge."
         );
+      }
+
+      for (const raw of state.directTargets) {
+        try {
+          const candidate = new URL(raw, state.url);
+          if (!sameProviderHost(candidate.hostname, providerHosts)) {
+            await assertPublicEndpoint(candidate, ctx.deadline);
+            return candidate.toString();
+          }
+        } catch {}
+      }
+
+      for (const entry of [...page.observedResponses()].reverse()) {
+        if (!isLikelyDownloadResponse(entry)) continue;
+        const candidate = new URL(entry.url);
+        await assertPublicEndpoint(candidate, ctx.deadline);
+        return candidate.toString();
       }
 
       const current = new URL(state.url);
@@ -129,23 +237,34 @@ export async function runBrowserFlow(
         }
       }
 
+      if (!selector && state.actions.length > 0) {
+        selector = state.actions[0] ?? null;
+      }
+
       if (selector) {
         try {
           await page.click(selector);
         } catch {
-          // A navigation may detach the old execution context.
+          // Navigation or DOM replacement may detach the old execution context.
         }
-        await sleep(350);
+        await sleep(650);
         continue;
       }
 
-      await sleep(400);
+      await sleep(500);
     }
 
     const finalUrl = new URL(page.url());
     if (!sameProviderHost(finalUrl.hostname, providerHosts)) {
       await assertPublicEndpoint(finalUrl, ctx.deadline);
       return finalUrl.toString();
+    }
+
+    for (const entry of [...page.observedResponses()].reverse()) {
+      if (!isLikelyDownloadResponse(entry)) continue;
+      const candidate = new URL(entry.url);
+      await assertPublicEndpoint(candidate, ctx.deadline);
+      return candidate.toString();
     }
 
     throw new ResolverError(
